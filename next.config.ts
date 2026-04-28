@@ -2,9 +2,8 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: "standalone",
-  basePath: "/interview",
   env: {
-    NEXT_PUBLIC_BASE_PATH: "/interview",
+    NEXT_PUBLIC_BASE_PATH: "",
   },
   async headers() {
     return [
