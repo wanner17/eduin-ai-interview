@@ -1,0 +1,261 @@
+{
+  "version": "1.0.0",
+  "lastScanned": 1777353704476,
+  "projectRoot": "d:\\dev\\eduin-ai-interview",
+  "techStack": {
+    "languages": [
+      {
+        "name": "JavaScript/TypeScript",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "package.json"
+        ]
+      },
+      {
+        "name": "TypeScript",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "tsconfig.json"
+        ]
+      }
+    ],
+    "frameworks": [
+      {
+        "name": "next",
+        "version": "16.2.4",
+        "category": "fullstack"
+      },
+      {
+        "name": "react",
+        "version": "19.2.4",
+        "category": "frontend"
+      },
+      {
+        "name": "react-dom",
+        "version": "19.2.4",
+        "category": "frontend"
+      }
+    ],
+    "packageManager": "npm",
+    "runtime": null
+  },
+  "build": {
+    "buildCommand": "npm run build",
+    "testCommand": null,
+    "lintCommand": "npm run lint",
+    "devCommand": "npm run dev",
+    "scripts": {
+      "dev": "next dev",
+      "build": "next build",
+      "start": "next start",
+      "lint": "eslint"
+    }
+  },
+  "conventions": {
+    "namingStyle": null,
+    "importStyle": null,
+    "testPattern": null,
+    "fileOrganization": null
+  },
+  "structure": {
+    "isMonorepo": false,
+    "workspaces": [],
+    "mainDirectories": [
+      "app",
+      "public"
+    ],
+    "gitBranches": {
+      "defaultBranch": "main",
+      "branchingStrategy": null
+    }
+  },
+  "customNotes": [],
+  "directoryMap": {
+    "app": {
+      "path": "app",
+      "purpose": "Application code",
+      "fileCount": 4,
+      "lastAccessed": 1777353704434,
+      "keyFiles": [
+        "favicon.ico",
+        "globals.css",
+        "layout.tsx",
+        "page.tsx"
+      ]
+    },
+    "public": {
+      "path": "public",
+      "purpose": "Public files",
+      "fileCount": 5,
+      "lastAccessed": 1777353704435,
+      "keyFiles": [
+        "file.svg",
+        "globe.svg",
+        "next.svg",
+        "vercel.svg",
+        "window.svg"
+      ]
+    }
+  },
+  "hotPaths": [
+    {
+      "path": "app\\[id]\\page.tsx",
+      "accessCount": 21,
+      "lastAccessed": 1777359163773,
+      "type": "file"
+    },
+    {
+      "path": "app\\page.tsx",
+      "accessCount": 20,
+      "lastAccessed": 1777358890778,
+      "type": "file"
+    },
+    {
+      "path": "schema.prisma",
+      "accessCount": 11,
+      "lastAccessed": 1777355688138,
+      "type": "file"
+    },
+    {
+      "path": "",
+      "accessCount": 10,
+      "lastAccessed": 1777359436889,
+      "type": "directory"
+    },
+    {
+      "path": "app\\api\\init\\route.ts",
+      "accessCount": 10,
+      "lastAccessed": 1777359440868,
+      "type": "file"
+    },
+    {
+      "path": "docker-compose.yml",
+      "accessCount": 8,
+      "lastAccessed": 1777359452943,
+      "type": "file"
+    },
+    {
+      "path": "package.json",
+      "accessCount": 7,
+      "lastAccessed": 1777359431287,
+      "type": "file"
+    },
+    {
+      "path": "app\\api\\answer\\route.ts",
+      "accessCount": 7,
+      "lastAccessed": 1777359440087,
+      "type": "file"
+    },
+    {
+      "path": "next.config.ts",
+      "accessCount": 6,
+      "lastAccessed": 1777358886487,
+      "type": "file"
+    },
+    {
+      "path": "app\\api\\session\\[id]\\route.ts",
+      "accessCount": 6,
+      "lastAccessed": 1777359440635,
+      "type": "file"
+    },
+    {
+      "path": ".env.local",
+      "accessCount": 5,
+      "lastAccessed": 1777356044900,
+      "type": "file"
+    },
+    {
+      "path": "lib\\ai\\openai.ts",
+      "accessCount": 5,
+      "lastAccessed": 1777357923183,
+      "type": "file"
+    },
+    {
+      "path": "types\\interview.ts",
+      "accessCount": 5,
+      "lastAccessed": 1777359263304,
+      "type": "file"
+    },
+    {
+      "path": "app\\result\\[id]\\page.tsx",
+      "accessCount": 5,
+      "lastAccessed": 1777359290893,
+      "type": "file"
+    },
+    {
+      "path": "app\\layout.tsx",
+      "accessCount": 4,
+      "lastAccessed": 1777355464088,
+      "type": "file"
+    },
+    {
+      "path": "lib\\prisma.ts",
+      "accessCount": 4,
+      "lastAccessed": 1777355481561,
+      "type": "file"
+    },
+    {
+      "path": "Dockerfile",
+      "accessCount": 4,
+      "lastAccessed": 1777359454653,
+      "type": "file"
+    },
+    {
+      "path": "app\\complete\\page.tsx",
+      "accessCount": 3,
+      "lastAccessed": 1777357864742,
+      "type": "file"
+    },
+    {
+      "path": "lib\\session-store.ts",
+      "accessCount": 3,
+      "lastAccessed": 1777357865042,
+      "type": "file"
+    },
+    {
+      "path": "route.ts",
+      "accessCount": 2,
+      "lastAccessed": 1777354566211,
+      "type": "file"
+    },
+    {
+      "path": "generator.ts",
+      "accessCount": 2,
+      "lastAccessed": 1777354566256,
+      "type": "file"
+    },
+    {
+      "path": "lib\\mock-db.ts",
+      "accessCount": 2,
+      "lastAccessed": 1777355482098,
+      "type": "file"
+    },
+    {
+      "path": "app",
+      "accessCount": 2,
+      "lastAccessed": 1777358925396,
+      "type": "directory"
+    },
+    {
+      "path": "tsconfig.json",
+      "accessCount": 1,
+      "lastAccessed": 1777354605775,
+      "type": "file"
+    },
+    {
+      "path": "types\\speech.d.ts",
+      "accessCount": 1,
+      "lastAccessed": 1777354976406,
+      "type": "file"
+    },
+    {
+      "path": "C:\\Users\\trgh6\\AppData\\Local\\Temp\\claude\\d--dev-eduin-ai-interview\\6323d24b-d107-4226-929d-6a47919fc5cf\\tasks\\bk1ooswb8.output",
+      "accessCount": 1,
+      "lastAccessed": 1777356115021,
+      "type": "file"
+    }
+  ],
+  "userDirectives": []
+}

@@ -1,0 +1,7 @@
+{
+  "tool_name": "Read",
+  "tool_input_preview": "{\"file_path\":\"d:\\\\dev\\\\eduin-ai-interview\\\\app\\\\api\"}",
+  "error": "EISDIR: illegal operation on a directory, read 'd:\\dev\\eduin-ai-interview\\app\\api'",
+  "timestamp": "2026-04-28T06:57:16.165Z",
+  "retry_count": 1
+}

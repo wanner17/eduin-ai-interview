@@ -1,65 +1,178 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import { useState, useRef, type ChangeEvent } from "react";
+import { useRouter } from "next/navigation";
+
+export default function HomePage() {
+  const router = useRouter();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [fileName, setFileName] = useState("");
+  const [resumeText, setResumeText] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const processFile = async (file: File) => {
+    setFileName(file.name);
+    try {
+      const text = await file.text();
+      setResumeText(text);
+    } catch {
+      setError("파일을 읽는 중 오류가 발생했습니다.");
+      setFileName("");
+    }
+  };
+
+  const handleFile = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    await processFile(file);
+  };
+
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    if (isLoading) return;
+    const file = e.dataTransfer.files?.[0];
+    if (!file) return;
+    await processFile(file);
+  };
+
+  const handleStart = async () => {
+    setIsLoading(true);
+    setError("");
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_PATH}/api/init`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          resumeContent: resumeText || null,
+          callbackUrl: null,
+        }),
+      });
+      if (!res.ok) {
+        const errorData = await res
+          .json()
+          .catch(() => ({ message: "서버와 통신 중 오류가 발생했습니다." }));
+        throw new Error(errorData.message || "면접 세션 생성에 실패했습니다.");
+      }
+      const { sessionId } = await res.json();
+      router.push(`/${sessionId}`);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "알 수 없는 오류가 발생했습니다. 다시 시도해 주세요."
+      );
+      setIsLoading(false);
+    }
+  };
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <main className="min-h-screen w-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-gray-800 via-gray-950 to-black flex items-center justify-center text-white p-4 sm:p-6">
+      <div className="w-full max-w-md space-y-8 text-center">
+        <div className="space-y-2">
+          <h1 className="text-4xl sm:text-5xl font-bold bg-gradient-to-r from-blue-300 to-blue-500 bg-clip-text text-transparent">
+            AI 면접
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <p className="text-gray-400">
+            이력서를 업로드하고, 맞춤형 면접을 경험해보세요.
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        <div
+          onClick={() => !isLoading && fileRef.current?.click()}
+          onDrop={handleDrop}
+          onDragOver={(e) => e.preventDefault()}
+          className={`relative group border-2 border-dashed border-gray-700 hover:border-blue-500 hover:bg-gray-900/50 rounded-2xl p-8 sm:p-10 text-center transition-all duration-300 ${
+            isLoading ? "cursor-not-allowed opacity-60" : "cursor-pointer"
+          }`}
+        >
+          <input
+            ref={fileRef}
+            type="file"
+            className="hidden"
+            onChange={handleFile}
+            disabled={isLoading}
+          />
+          <div className="flex flex-col items-center justify-center space-y-3">
+            <UploadIcon className="w-10 h-10 text-gray-500 group-hover:text-blue-400 transition-colors" />
+            {fileName ? (
+              <div>
+                <p className="text-blue-400 font-semibold">{fileName}</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  파일을 다시 선택하려면 클릭하세요.
+                </p>
+              </div>
+            ) : (
+              <div>
+                <p className="text-gray-300 font-medium">
+                  이력서 파일을 여기에 드래그하거나 클릭하세요
+                </p>
+              </div>
+            )}
+          </div>
         </div>
-      </main>
-    </div>
+
+        {error && <p className="text-red-400 text-sm animate-pulse">{error}</p>}
+
+        <button
+          onClick={handleStart}
+          disabled={isLoading}
+          className="w-full h-12 flex items-center justify-center rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-70 disabled:cursor-not-allowed font-semibold transition-all duration-300 text-base shadow-lg shadow-blue-600/20 hover:shadow-blue-500/40"
+        >
+          {isLoading ? (
+            <>
+              <svg
+                className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                ></circle>
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                ></path>
+              </svg>
+              <span>질문 생성 중...</span>
+            </>
+          ) : (
+            "면접 시작하기"
+          )}
+        </button>
+
+        <p className="text-center text-xs text-gray-600">
+          이력서 없이도 기본 질문으로 면접을 시작할 수 있습니다.
+        </p>
+      </div>
+    </main>
+  );
+}
+
+function UploadIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="17 8 12 3 7 8" />
+      <line x1="12" x2="12" y1="3" y2="15" />
+    </svg>
   );
 }
