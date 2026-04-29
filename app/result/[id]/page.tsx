@@ -55,7 +55,7 @@ export default function ResultPage({
       <div className="max-w-4xl mx-auto">
         <header className="mb-10 text-center">
           <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-300 to-blue-500 bg-clip-text text-transparent mb-2">
-            AI 면접 결과
+            결과
           </h1>
           {/* <p className="text-gray-500 text-sm font-mono">Session ID: {sessionId}</p> */}
         </header>
