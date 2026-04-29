@@ -1,5 +1,7 @@
 "use client";
 
+import { useRef, useState } from "react";
+
 interface Props {
   videoUrl: string | null;
   presenterImageUrl: string;
@@ -15,6 +17,9 @@ export default function AvatarPlayer({
   isError,
   onEnded,
 }: Props) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [needsClick, setNeedsClick] = useState(false);
+
   return (
     <div className="relative w-full h-full bg-gray-900 rounded-xl overflow-hidden">
       {presenterImageUrl && (
@@ -33,13 +38,28 @@ export default function AvatarPlayer({
 
       {videoUrl && !isLoading && (
         <video
+          ref={videoRef}
           key={videoUrl}
           src={videoUrl}
-          autoPlay
           playsInline
+          onCanPlay={() => videoRef.current?.play().catch(() => setNeedsClick(true))}
           onEnded={onEnded}
           className="absolute inset-0 w-full h-full object-cover"
         />
+      )}
+
+      {needsClick && (
+        <button
+          onClick={() => {
+            videoRef.current?.play();
+            setNeedsClick(false);
+          }}
+          className="absolute inset-0 flex items-center justify-center bg-black/40"
+        >
+          <span className="text-white text-lg font-semibold bg-blue-600 px-6 py-3 rounded-xl">
+            ▶ 재생
+          </span>
+        </button>
       )}
 
       {isLoading && (

@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  createTalkWithAudio,
-  createTalkWithText,
-  pollTalk,
-} from "@/lib/ai/did";
-
-const PRESENTER_IMAGE_URL = process.env.DID_PRESENTER_IMAGE_URL ?? "";
+import { randomUUID } from "crypto";
+import { writeFile, mkdir } from "fs/promises";
+import path from "path";
+import { getAudio } from "@/lib/audio-cache";
+import { generateVideoWithMuseTalk } from "@/lib/ai/musetalk";
 
 export async function POST(req: NextRequest) {
   const { audioId, questionText } = await req.json();
@@ -14,30 +12,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "questionText 필수" }, { status: 400 });
   }
 
-  if (!process.env.DID_API_KEY) {
-    return NextResponse.json({ videoUrl: null, error: "did_not_configured" });
+  const audioBuffer = audioId ? getAudio(audioId) : null;
+  if (!audioBuffer) {
+    return NextResponse.json({ videoUrl: null, error: "audio_not_found" });
   }
 
   try {
-    let videoUrl: string | null = null;
+    const videoBuffer = await generateVideoWithMuseTalk(audioBuffer);
 
-    if (audioId && process.env.NEXT_PUBLIC_BASE_URL) {
-      const audioUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/api/audio/${audioId}`;
-      try {
-        const talkId = await createTalkWithAudio(audioUrl, PRESENTER_IMAGE_URL);
-        videoUrl = await pollTalk(talkId);
-      } catch {
-        // audio create or poll failed — fall through to text TTS
-        const talkId = await createTalkWithText(questionText, PRESENTER_IMAGE_URL);
-        videoUrl = await pollTalk(talkId);
-      }
-    } else {
-      const talkId = await createTalkWithText(questionText, PRESENTER_IMAGE_URL);
-      videoUrl = await pollTalk(talkId);
-    }
+    const filename = `${randomUUID()}.mp4`;
+    const videosDir = path.join(process.cwd(), "public", "videos");
+    await mkdir(videosDir, { recursive: true });
+    await writeFile(path.join(videosDir, filename), videoBuffer);
 
-    return NextResponse.json({ videoUrl });
+    const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+    return NextResponse.json({ videoUrl: `${basePath}/videos/${filename}` });
   } catch {
-    return NextResponse.json({ videoUrl: null, error: "did_failed" });
+    return NextResponse.json({ videoUrl: null, error: "musetalk_failed" });
   }
 }

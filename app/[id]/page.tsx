@@ -21,7 +21,7 @@ export default function InterviewPage({
 
   const webcamRef = useRef<HTMLVideoElement>(null);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
-  const videoPromises = useRef<Map<number, Promise<string | null>>>(new Map());
+  const preparedUrls = useRef<Map<number, string | null>>(new Map());
   const currentIndexRef = useRef(0);
 
   const [session, setSession] = useState<SessionData | null>(null);
@@ -32,6 +32,9 @@ export default function InterviewPage({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [sttSupported, setSttSupported] = useState(true);
+
+  const [isPreparing, setIsPreparing] = useState(false);
+  const [prepareProgress, setPrepareProgress] = useState(0);
 
   const [avatarState, setAvatarState] = useState<AvatarState>("generating");
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
@@ -65,36 +68,41 @@ export default function InterviewPage({
   }, []);
 
   useEffect(() => {
-    currentIndexRef.current = currentIndex;
     if (!session) return;
+    setIsPreparing(true);
+    setPrepareProgress(0);
 
-    setAvatarState("generating");
+    (async () => {
+      for (let i = 0; i < session.qas.length; i++) {
+        const url = await fetchVideoForIndex(session.qas[i].question);
+        preparedUrls.current.set(i, url);
+        setPrepareProgress(i + 1);
+      }
+      setIsPreparing(false);
+      loadVideoFromCache(0);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session]);
+
+  useEffect(() => {
+    currentIndexRef.current = currentIndex;
+    if (isPreparing || !session) return;
+    loadVideoFromCache(currentIndex);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentIndex]);
+
+  function loadVideoFromCache(idx: number) {
+    const url = preparedUrls.current.get(idx) ?? null;
     setVideoUrl(null);
     setAvatarError(false);
-
-    const loadVideo = (idx: number) => {
-      if (!videoPromises.current.has(idx)) {
-        videoPromises.current.set(idx, fetchVideoForIndex(session.qas[idx].question));
-      }
-      return videoPromises.current.get(idx)!;
-    };
-
-    loadVideo(currentIndex).then((url) => {
-      if (currentIndexRef.current !== currentIndex) return;
-      if (url) {
-        setVideoUrl(url);
-        setAvatarState("playing");
-      } else {
-        setAvatarError(true);
-        setAvatarState("fallback");
-      }
-    });
-
-    if (currentIndex + 1 < session.qas.length) {
-      loadVideo(currentIndex + 1);
+    if (url) {
+      setVideoUrl(url);
+      setAvatarState("playing");
+    } else {
+      setAvatarError(true);
+      setAvatarState("fallback");
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session, currentIndex]);
+  }
 
   async function fetchVideoForIndex(questionText: string): Promise<string | null> {
     try {
@@ -205,6 +213,32 @@ export default function InterviewPage({
       <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center text-white gap-4">
         <Spinner />
         <p className="text-gray-400">면접 세션을 불러오는 중...</p>
+      </div>
+    );
+  }
+
+  if (isPreparing && session) {
+    const total = session.qas.length;
+    const pct = Math.round((prepareProgress / total) * 100);
+    return (
+      <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center text-white gap-8 px-6">
+        <div className="flex flex-col items-center gap-3">
+          <Spinner />
+          <p className="text-xl font-semibold">면접 준비 중입니다</p>
+          <p className="text-gray-400 text-sm">잠시만 기다려 주세요...</p>
+        </div>
+        <div className="w-full max-w-sm">
+          <div className="flex justify-between text-xs text-gray-500 mb-2">
+            <span>질문 영상 생성 중</span>
+            <span>{prepareProgress} / {total}</span>
+          </div>
+          <div className="w-full h-2 bg-gray-800 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-blue-500 rounded-full transition-all duration-500"
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+        </div>
       </div>
     );
   }
