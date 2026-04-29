@@ -21,7 +21,8 @@ export default function InterviewPage({
 
   const webcamRef = useRef<HTMLVideoElement>(null);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
-  const genCountRef = useRef(0);
+  const videoPromises = useRef<Map<number, Promise<string | null>>>(new Map());
+  const currentIndexRef = useRef(0);
 
   const [session, setSession] = useState<SessionData | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -64,41 +65,22 @@ export default function InterviewPage({
   }, []);
 
   useEffect(() => {
+    currentIndexRef.current = currentIndex;
     if (!session) return;
-    const qa = session.qas[currentIndex];
-    generateAvatarVideo(qa.question);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session, currentIndex]);
 
-  async function generateAvatarVideo(questionText: string) {
-    const gen = ++genCountRef.current;
     setAvatarState("generating");
     setVideoUrl(null);
     setAvatarError(false);
 
-    try {
-      const speakRes = await fetch(`${BASE_PATH}/api/speak`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: questionText }),
-      });
-      const { audioId } = (await speakRes.json()) as {
-        audioId: string | null;
-      };
+    const loadVideo = (idx: number) => {
+      if (!videoPromises.current.has(idx)) {
+        videoPromises.current.set(idx, fetchVideoForIndex(session.qas[idx].question));
+      }
+      return videoPromises.current.get(idx)!;
+    };
 
-      if (gen !== genCountRef.current) return;
-
-      const avatarRes = await fetch(`${BASE_PATH}/api/avatar`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ audioId, questionText }),
-      });
-      const { videoUrl: url } = (await avatarRes.json()) as {
-        videoUrl: string | null;
-      };
-
-      if (gen !== genCountRef.current) return;
-
+    loadVideo(currentIndex).then((url) => {
+      if (currentIndexRef.current !== currentIndex) return;
       if (url) {
         setVideoUrl(url);
         setAvatarState("playing");
@@ -106,10 +88,32 @@ export default function InterviewPage({
         setAvatarError(true);
         setAvatarState("fallback");
       }
+    });
+
+    if (currentIndex + 1 < session.qas.length) {
+      loadVideo(currentIndex + 1);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session, currentIndex]);
+
+  async function fetchVideoForIndex(questionText: string): Promise<string | null> {
+    try {
+      const speakRes = await fetch(`${BASE_PATH}/api/speak`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: questionText }),
+      });
+      const { audioId } = (await speakRes.json()) as { audioId: string | null };
+
+      const avatarRes = await fetch(`${BASE_PATH}/api/avatar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ audioId, questionText }),
+      });
+      const { videoUrl: url } = (await avatarRes.json()) as { videoUrl: string | null };
+      return url ?? null;
     } catch {
-      if (gen !== genCountRef.current) return;
-      setAvatarError(true);
-      setAvatarState("fallback");
+      return null;
     }
   }
 
@@ -246,8 +250,14 @@ export default function InterviewPage({
 
       {/* 아바타 + 웹캠 */}
       <div className="flex-1 flex gap-3 p-4 overflow-hidden min-h-0">
-        {/* 아바타 패널 (좌, 60%) */}
-        <div className="flex-[3] relative min-h-0">
+        {/* 아바타 패널 */}
+        <motion.div
+          className="relative min-h-0"
+          animate={{
+            flex: avatarState === "playing" ? 1.8 : isRecording ? 0.5 : 1,
+          }}
+          transition={{ duration: 0.5, ease: "easeInOut" }}
+        >
           <AvatarPlayer
             videoUrl={videoUrl}
             presenterImageUrl={PRESENTER_IMAGE_URL}
@@ -264,7 +274,10 @@ export default function InterviewPage({
               <motion.div
                 key={currentIndex}
                 initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
+                animate={{
+                  opacity: avatarState === "generating" ? 0 : 1,
+                  y: avatarState === "generating" ? 10 : 0,
+                }}
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.3 }}
               >
@@ -283,10 +296,16 @@ export default function InterviewPage({
               </motion.div>
             </AnimatePresence>
           </div>
-        </div>
+        </motion.div>
 
-        {/* 내 웹캠 (우, 40%) */}
-        <div className="flex-[2] relative rounded-xl overflow-hidden bg-gray-900 min-h-0">
+        {/* 내 웹캠 */}
+        <motion.div
+          className="relative rounded-xl overflow-hidden bg-gray-900 min-h-0"
+          animate={{
+            flex: isRecording ? 1.8 : avatarState === "playing" ? 0.5 : 1,
+          }}
+          transition={{ duration: 0.5, ease: "easeInOut" }}
+        >
           <video
             ref={webcamRef}
             autoPlay
@@ -305,7 +324,7 @@ export default function InterviewPage({
               나
             </span>
           </div>
-        </div>
+        </motion.div>
       </div>
 
       {/* STT 자막 */}

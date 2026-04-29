@@ -5,7 +5,7 @@ import { generateFeedback } from "@/lib/ai/openai";
 export async function POST(req: NextRequest) {
   const { qaId, answer, isLast } = await req.json();
 
-  if (!qaId || !answer) {
+  if (!qaId || answer == null) {
     return NextResponse.json({ error: "qaId, answer 필수" }, { status: 400 });
   }
 
