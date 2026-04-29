@@ -4,6 +4,12 @@ import { use, useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import type { SessionData, SessionQA } from "@/types/interview";
+import AvatarPlayer from "@/components/AvatarPlayer";
+
+type AvatarState = "generating" | "playing" | "ready" | "fallback";
+
+const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+const PRESENTER_IMAGE_URL = process.env.NEXT_PUBLIC_PRESENTER_IMAGE_URL ?? "";
 
 export default function InterviewPage({
   params,
@@ -13,8 +19,9 @@ export default function InterviewPage({
   const { id: sessionId } = use(params);
   const router = useRouter();
 
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const webcamRef = useRef<HTMLVideoElement>(null);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const genCountRef = useRef(0);
 
   const [session, setSession] = useState<SessionData | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -25,36 +32,87 @@ export default function InterviewPage({
   const [elapsed, setElapsed] = useState(0);
   const [sttSupported, setSttSupported] = useState(true);
 
-  // 세션 로드
+  const [avatarState, setAvatarState] = useState<AvatarState>("generating");
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [avatarError, setAvatarError] = useState(false);
+
   useEffect(() => {
-    fetch(`${process.env.NEXT_PUBLIC_BASE_PATH}/api/session/${sessionId}`)
-      .then((r) => r.json())
-      .then((data: SessionData) => {
+    fetch(`${BASE_PATH}/api/session/${sessionId}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: SessionData | null) => {
         setSession(data);
         setIsLoading(false);
       })
       .catch(() => setIsLoading(false));
   }, [sessionId]);
 
-  // 웹캠
   useEffect(() => {
     navigator.mediaDevices
       .getUserMedia({ video: true, audio: false })
       .then((stream) => {
-        if (videoRef.current) videoRef.current.srcObject = stream;
+        if (webcamRef.current) webcamRef.current.srcObject = stream;
       })
       .catch(console.error);
 
     return () => {
-      if (videoRef.current?.srcObject) {
-        (videoRef.current.srcObject as MediaStream)
+      if (webcamRef.current?.srcObject) {
+        (webcamRef.current.srcObject as MediaStream)
           .getTracks()
           .forEach((t) => t.stop());
       }
     };
   }, []);
 
-  // 녹음 타이머
+  useEffect(() => {
+    if (!session) return;
+    const qa = session.qas[currentIndex];
+    generateAvatarVideo(qa.question);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session, currentIndex]);
+
+  async function generateAvatarVideo(questionText: string) {
+    const gen = ++genCountRef.current;
+    setAvatarState("generating");
+    setVideoUrl(null);
+    setAvatarError(false);
+
+    try {
+      const speakRes = await fetch(`${BASE_PATH}/api/speak`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: questionText }),
+      });
+      const { audioId } = (await speakRes.json()) as {
+        audioId: string | null;
+      };
+
+      if (gen !== genCountRef.current) return;
+
+      const avatarRes = await fetch(`${BASE_PATH}/api/avatar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ audioId, questionText }),
+      });
+      const { videoUrl: url } = (await avatarRes.json()) as {
+        videoUrl: string | null;
+      };
+
+      if (gen !== genCountRef.current) return;
+
+      if (url) {
+        setVideoUrl(url);
+        setAvatarState("playing");
+      } else {
+        setAvatarError(true);
+        setAvatarState("fallback");
+      }
+    } catch {
+      if (gen !== genCountRef.current) return;
+      setAvatarError(true);
+      setAvatarState("fallback");
+    }
+  }
+
   useEffect(() => {
     if (!isRecording) return;
     const timer = setInterval(() => setElapsed((e) => e + 1), 1000);
@@ -105,7 +163,7 @@ export default function InterviewPage({
     const qa: SessionQA = session.qas[currentIndex];
     const isLast = currentIndex === session.qas.length - 1;
 
-    await fetch(`${process.env.NEXT_PUBLIC_BASE_PATH}/api/answer`, {
+    await fetch(`${BASE_PATH}/api/answer`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ qaId: qa.id, answer: transcript, isLast }),
@@ -122,10 +180,21 @@ export default function InterviewPage({
       );
       router.push(`/result/${sessionId}`);
     }
-  }, [session, currentIndex, transcript, isSubmitting, sessionId, router, stopRecording]);
+  }, [
+    session,
+    currentIndex,
+    transcript,
+    isSubmitting,
+    sessionId,
+    router,
+    stopRecording,
+  ]);
 
   const formatTime = (s: number) =>
     `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+
+  const canStartRecording =
+    avatarState === "ready" || avatarState === "fallback";
 
   if (isLoading) {
     return (
@@ -150,7 +219,6 @@ export default function InterviewPage({
 
   return (
     <main className="flex flex-col h-screen bg-gray-950 text-white overflow-hidden">
-      {/* 헤더 */}
       <header className="flex items-center justify-between px-6 py-3 bg-gray-900 border-b border-gray-800 shrink-0">
         <div className="flex items-center gap-3">
           <span className="text-sm font-semibold text-white">AI 면접</span>
@@ -169,7 +237,6 @@ export default function InterviewPage({
         )}
       </header>
 
-      {/* 진행 바 */}
       <div className="h-1 bg-gray-800 shrink-0">
         <div
           className="h-full bg-blue-500 transition-all duration-500"
@@ -177,60 +244,82 @@ export default function InterviewPage({
         />
       </div>
 
-      {/* 메인 콘텐츠: 카메라 + 오버레이 */}
-      <div className="flex-1 relative overflow-hidden bg-black">
-        <video
-          ref={videoRef}
-          autoPlay
-          muted
-          playsInline
-          className="w-full h-full object-cover"
-        />
-
-        {/* REC 뱃지 */}
-        {isRecording && (
-          <div className="absolute top-4 left-4 flex items-center gap-1.5 bg-red-600/90 backdrop-blur-sm rounded-full px-2.5 py-1 text-xs font-semibold text-white">
-            <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
-            REC
+      {/* 아바타 + 웹캠 */}
+      <div className="flex-1 flex gap-3 p-4 overflow-hidden min-h-0">
+        {/* 아바타 패널 (좌, 60%) */}
+        <div className="flex-[3] relative min-h-0">
+          <AvatarPlayer
+            videoUrl={videoUrl}
+            presenterImageUrl={PRESENTER_IMAGE_URL}
+            isLoading={avatarState === "generating"}
+            isError={avatarError}
+            onEnded={() => {
+              setVideoUrl(null);
+              setAvatarState("ready");
+            }}
+          />
+          {/* 질문 자막 */}
+          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent px-4 pt-8 pb-4 rounded-b-xl pointer-events-none">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={currentIndex}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.3 }}
+              >
+                <span className="text-xs font-semibold text-blue-400 uppercase tracking-widest block mb-1.5">
+                  질문 {currentIndex + 1}
+                </span>
+                <p className="text-base font-semibold leading-relaxed text-white drop-shadow">
+                  {currentQA.question}
+                </p>
+                {currentQA.intent && (
+                  <p className="mt-1 text-xs text-gray-400">
+                    <span className="text-gray-500">평가 의도 </span>
+                    {currentQA.intent}
+                  </p>
+                )}
+              </motion.div>
+            </AnimatePresence>
           </div>
-        )}
+        </div>
 
-        {/* 질문 오버레이 — 카메라 하단 */}
-        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/70 to-transparent px-6 pt-10 pb-5">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={currentIndex}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3 }}
-            >
-              <span className="text-xs font-semibold text-blue-400 uppercase tracking-widest block mb-2">
-                질문 {currentIndex + 1}
-              </span>
-              <p className="text-xl font-semibold leading-relaxed text-white drop-shadow">
-                {currentQA.question}
-              </p>
-            </motion.div>
-          </AnimatePresence>
-
-          {currentQA.intent && (
-            <p className="mt-2 text-xs text-gray-400">
-              <span className="text-gray-500">평가 의도 </span>
-              {currentQA.intent}
-            </p>
+        {/* 내 웹캠 (우, 40%) */}
+        <div className="flex-[2] relative rounded-xl overflow-hidden bg-gray-900 min-h-0">
+          <video
+            ref={webcamRef}
+            autoPlay
+            muted
+            playsInline
+            className="w-full h-full object-cover"
+          />
+          {isRecording && (
+            <div className="absolute top-3 left-3 flex items-center gap-1.5 bg-red-600/90 backdrop-blur-sm rounded-full px-2.5 py-1 text-xs font-semibold text-white">
+              <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
+              REC
+            </div>
           )}
+          <div className="absolute bottom-3 left-0 right-0 text-center pointer-events-none">
+            <span className="text-xs text-gray-500 bg-black/50 px-2 py-1 rounded-full">
+              나
+            </span>
+          </div>
         </div>
       </div>
 
       {/* STT 자막 */}
-      <div className="shrink-0 min-h-[68px] px-6 py-4 bg-gray-900 border-t border-gray-800 flex items-center gap-3">
+      <div className="shrink-0 min-h-[60px] px-6 py-3 bg-gray-900 border-t border-gray-800 flex items-center gap-3">
         <div className="text-xs text-gray-500 shrink-0">실시간 자막</div>
         <p className="text-sm text-gray-300 leading-relaxed flex-1">
           {transcript ||
             (isRecording
               ? "음성을 인식하고 있습니다..."
-              : "답변 시작 버튼을 눌러주세요.")}
+              : avatarState === "generating"
+                ? "면접관이 질문을 준비하고 있습니다..."
+                : avatarState === "playing"
+                  ? "면접관이 질문 중입니다..."
+                  : "답변 시작 버튼을 눌러주세요.")}
         </p>
       </div>
 
@@ -251,14 +340,18 @@ export default function InterviewPage({
           </>
         )}
         <div className="flex gap-3">
-          {sttSupported && (
-            !isRecording ? (
+          {sttSupported &&
+            (!isRecording ? (
               <button
                 onClick={startRecording}
-                disabled={isSubmitting}
-                className="flex-1 h-12 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 font-semibold transition-colors text-base"
+                disabled={isSubmitting || !canStartRecording}
+                className="flex-1 h-12 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed font-semibold transition-colors text-base"
               >
-                답변 시작
+                {avatarState === "generating"
+                  ? "면접관 준비 중..."
+                  : avatarState === "playing"
+                    ? "질문 듣는 중..."
+                    : "답변 시작"}
               </button>
             ) : (
               <button
@@ -267,8 +360,7 @@ export default function InterviewPage({
               >
                 답변 중지
               </button>
-            )
-          )}
+            ))}
           <button
             onClick={submitAnswer}
             disabled={isSubmitting}
@@ -294,13 +386,24 @@ export default function InterviewPage({
 function Spinner(props: { className?: string }) {
   return (
     <svg
-      className={`animate-spin h-8 w-8 text-blue-400 ${props.className}`}
+      className={`animate-spin h-8 w-8 text-blue-400 ${props.className ?? ""}`}
       xmlns="http://www.w3.org/2000/svg"
       fill="none"
       viewBox="0 0 24 24"
     >
-      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+      <circle
+        className="opacity-25"
+        cx="12"
+        cy="12"
+        r="10"
+        stroke="currentColor"
+        strokeWidth="4"
+      />
+      <path
+        className="opacity-75"
+        fill="currentColor"
+        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+      />
     </svg>
   );
 }
