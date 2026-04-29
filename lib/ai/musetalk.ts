@@ -4,7 +4,7 @@ export async function generateVideoWithMuseTalk(
   audioBuffer: Buffer
 ): Promise<Buffer> {
   const formData = new FormData();
-  formData.append("audio", new Blob([audioBuffer], { type: "audio/mpeg" }), "audio.mp3");
+  formData.append("audio", new Blob([new Uint8Array(audioBuffer)], { type: "audio/mpeg" }), "audio.mp3");
 
   const res = await fetch(`${MUSETALK_API_URL}/generate`, {
     method: "POST",
