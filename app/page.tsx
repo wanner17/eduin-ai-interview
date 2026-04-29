@@ -70,12 +70,12 @@ export default function HomePage() {
     <main className="min-h-screen w-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-gray-800 via-gray-950 to-black flex items-center justify-center text-white p-4 sm:p-6">
       <div className="w-full max-w-md space-y-8 text-center">
         <div className="space-y-2">
-          <h1 className="text-4xl sm:text-5xl font-bold bg-gradient-to-r from-blue-300 to-blue-500 bg-clip-text text-transparent">
-            AI 면접
+          <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-blue-300 to-blue-500 bg-clip-text text-transparent">
+            이력서를 업로드하고,<br/>맞춤형 면접을 경험해보세요.
           </h1>
-          <p className="text-gray-400">
-            이력서를 업로드하고, 맞춤형 면접을 경험해보세요.
-          </p>
+          {/* <p className="text-gray-400">
+            
+          </p> */}
         </div>
 
         <div
