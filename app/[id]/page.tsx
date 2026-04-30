@@ -284,7 +284,7 @@ export default function InterviewPage({
       </div>
 
       {/* 아바타 + 웹캠 */}
-      <div className="flex-1 flex gap-3 p-4 overflow-hidden min-h-0">
+      <div className="flex-1 flex flex-col md:flex-row gap-3 p-4 overflow-hidden min-h-0">
         {/* 아바타 패널 */}
         <motion.div
           className="relative min-h-0"
