@@ -20,8 +20,9 @@ export default function InterviewPage({
   const router = useRouter();
 
   const webcamRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
-  const preparedUrls = useRef<Map<number, string | null>>(new Map());
+  const preparedAudio = useRef<Map<number, ArrayBuffer | null>>(new Map());
   const currentIndexRef = useRef(0);
 
   const [session, setSession] = useState<SessionData | null>(null);
@@ -37,7 +38,7 @@ export default function InterviewPage({
   const [prepareProgress, setPrepareProgress] = useState(0);
 
   const [avatarState, setAvatarState] = useState<AvatarState>("generating");
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [currentAudioBuffer, setCurrentAudioBuffer] = useState<ArrayBuffer | null>(null);
   const [avatarError, setAvatarError] = useState(false);
 
   useEffect(() => {
@@ -50,20 +51,23 @@ export default function InterviewPage({
       .catch(() => setIsLoading(false));
   }, [sessionId]);
 
+  const setWebcamRef = useCallback((el: HTMLVideoElement | null) => {
+    (webcamRef as { current: HTMLVideoElement | null }).current = el;
+    if (el && streamRef.current) el.srcObject = streamRef.current;
+  }, []);
+
   useEffect(() => {
     navigator.mediaDevices
       .getUserMedia({ video: true, audio: false })
       .then((stream) => {
+        streamRef.current = stream;
         if (webcamRef.current) webcamRef.current.srcObject = stream;
       })
       .catch(console.error);
 
     return () => {
-      if (webcamRef.current?.srcObject) {
-        (webcamRef.current.srcObject as MediaStream)
-          .getTracks()
-          .forEach((t) => t.stop());
-      }
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
     };
   }, []);
 
@@ -74,12 +78,12 @@ export default function InterviewPage({
 
     (async () => {
       for (let i = 0; i < session.qas.length; i++) {
-        const url = await fetchVideoForIndex(session.qas[i].question);
-        preparedUrls.current.set(i, url);
+        const buf = await fetchAudioForIndex(session.qas[i].question);
+        preparedAudio.current.set(i, buf);
         setPrepareProgress(i + 1);
       }
       setIsPreparing(false);
-      loadVideoFromCache(0);
+      loadAudioFromCache(0);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session]);
@@ -87,24 +91,24 @@ export default function InterviewPage({
   useEffect(() => {
     currentIndexRef.current = currentIndex;
     if (isPreparing || !session) return;
-    loadVideoFromCache(currentIndex);
+    loadAudioFromCache(currentIndex);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentIndex]);
 
-  function loadVideoFromCache(idx: number) {
-    const url = preparedUrls.current.get(idx) ?? null;
-    setVideoUrl(null);
+  function loadAudioFromCache(idx: number) {
+    const buf = preparedAudio.current.get(idx) ?? null;
+    setCurrentAudioBuffer(null);
     setAvatarError(false);
-    if (url) {
-      setVideoUrl(url);
-      setAvatarState("playing");
+    if (buf) {
+      setCurrentAudioBuffer(buf);
+      setAvatarState("generating");
     } else {
       setAvatarError(true);
       setAvatarState("fallback");
     }
   }
 
-  async function fetchVideoForIndex(questionText: string): Promise<string | null> {
+  async function fetchAudioForIndex(questionText: string): Promise<ArrayBuffer | null> {
     try {
       const speakRes = await fetch(`${BASE_PATH}/api/speak`, {
         method: "POST",
@@ -112,14 +116,11 @@ export default function InterviewPage({
         body: JSON.stringify({ text: questionText }),
       });
       const { audioId } = (await speakRes.json()) as { audioId: string | null };
+      if (!audioId) return null;
 
-      const avatarRes = await fetch(`${BASE_PATH}/api/avatar`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ audioId, questionText }),
-      });
-      const { videoUrl: url } = (await avatarRes.json()) as { videoUrl: string | null };
-      return url ?? null;
+      const audioRes = await fetch(`${BASE_PATH}/api/audio/${audioId}`);
+      if (!audioRes.ok) return null;
+      return await audioRes.arrayBuffer();
     } catch {
       return null;
     }
@@ -229,7 +230,7 @@ export default function InterviewPage({
         </div>
         <div className="w-full max-w-sm">
           <div className="flex justify-between text-xs text-gray-500 mb-2">
-            <span>질문 영상 생성 중</span>
+            <span>질문 생성 중</span>
             <span>{prepareProgress} / {total}</span>
           </div>
           <div className="w-full h-2 bg-gray-800 rounded-full overflow-hidden">
@@ -293,14 +294,12 @@ export default function InterviewPage({
           transition={{ duration: 0.5, ease: "easeInOut" }}
         >
           <AvatarPlayer
-            videoUrl={videoUrl}
+            audioBuffer={currentAudioBuffer}
             presenterImageUrl={PRESENTER_IMAGE_URL}
-            isLoading={avatarState === "generating"}
             isError={avatarError}
-            onEnded={() => {
-              setVideoUrl(null);
-              setAvatarState("ready");
-            }}
+            onStarted={() => setAvatarState("playing")}
+            onEnded={() => setAvatarState("ready")}
+            onError={() => { setAvatarError(true); setAvatarState("fallback"); }}
           />
           {/* 질문 자막 */}
           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent px-4 pt-8 pb-4 rounded-b-xl pointer-events-none">
@@ -341,7 +340,7 @@ export default function InterviewPage({
           transition={{ duration: 0.5, ease: "easeInOut" }}
         >
           <video
-            ref={webcamRef}
+            ref={setWebcamRef}
             autoPlay
             muted
             playsInline
