@@ -7,6 +7,7 @@ const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 interface Props {
   audioBuffer: ArrayBuffer | null;
   presenterImageUrl: string;
+  faceId?: string;
   isError: boolean;
   onStarted: () => void;
   onEnded: () => void;
@@ -16,6 +17,7 @@ interface Props {
 export default function AvatarPlayer({
   audioBuffer,
   presenterImageUrl,
+  faceId,
   isError,
   onStarted,
   onEnded,
@@ -42,7 +44,11 @@ export default function AvatarPlayer({
 
     (async () => {
       try {
-        const tokenRes = await fetch(`${BASE_PATH}/api/simli-token`, { method: "POST" });
+        const tokenRes = await fetch(`${BASE_PATH}/api/simli-token`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ faceId }),
+        });
         const { session_token } = (await tokenRes.json()) as { session_token: string };
         if (cancelled) return;
 

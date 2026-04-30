@@ -37,7 +37,7 @@ const DEFAULT_QUESTIONS: GeneratedQuestion[] = [
 ];
 
 export async function POST(req: NextRequest) {
-  const { resumeContent, callbackUrl } = await req.json();
+  const { resumeContent, callbackUrl, interviewerId } = await req.json();
 
   const questions = resumeContent
     ? await generateInterviewQuestions(resumeContent)
@@ -51,6 +51,7 @@ export async function POST(req: NextRequest) {
   const session = sessionStore.createSession({
     userId: randomUUID(),
     callbackUrl: callbackUrl ?? null,
+    interviewerId: interviewerId ?? "kim",
     questions: questions.map((q) => ({
       question: q.question,
       intent: q.intent,

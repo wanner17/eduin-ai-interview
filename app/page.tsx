@@ -2,6 +2,9 @@
 
 import { useState, useRef, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
+import { INTERVIEWERS } from "@/lib/interviewers";
+
+const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
 export default function HomePage() {
   const router = useRouter();
@@ -10,6 +13,28 @@ export default function HomePage() {
   const [resumeText, setResumeText] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [selectedInterviewerId, setSelectedInterviewerId] = useState<string | null>(null);
+  const [isRandom, setIsRandom] = useState(false);
+
+  const selectInterviewer = (id: string) => {
+    if (!isRandom && selectedInterviewerId === id) {
+      setSelectedInterviewerId(null); // 같은 카드 클릭 시 선택 취소
+    } else {
+      setSelectedInterviewerId(id);
+      setIsRandom(false);
+    }
+  };
+
+  const toggleRandom = () => {
+    if (isRandom) {
+      setIsRandom(false);
+      setSelectedInterviewerId(null);
+    } else {
+      const idx = Math.floor(Math.random() * INTERVIEWERS.length);
+      setSelectedInterviewerId(INTERVIEWERS[idx].id);
+      setIsRandom(true);
+    }
+  };
 
   const processFile = async (file: File) => {
     setFileName(file.name);
@@ -37,15 +62,17 @@ export default function HomePage() {
   };
 
   const handleStart = async () => {
+    if (!selectedInterviewerId) return;
     setIsLoading(true);
     setError("");
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_PATH}/api/init`, {
+      const res = await fetch(`${BASE_PATH}/api/init`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           resumeContent: resumeText || null,
           callbackUrl: null,
+          interviewerId: selectedInterviewerId,
         }),
       });
       if (!res.ok) {
@@ -66,18 +93,78 @@ export default function HomePage() {
     }
   };
 
+  const hasSelection = selectedInterviewerId !== null;
+
   return (
     <main className="min-h-screen w-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-gray-800 via-gray-950 to-black flex items-center justify-center text-white p-4 sm:p-6">
-      <div className="w-full max-w-md space-y-8 text-center">
+      <div className="w-full max-w-lg space-y-8 text-center">
         <div className="space-y-2">
           <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-blue-300 to-blue-500 bg-clip-text text-transparent">
-            이력서를 업로드하고,<br/>맞춤형 면접을 경험해보세요.
+            이력서를 업로드하고,<br />맞춤형 면접을 경험해보세요.
           </h1>
-          {/* <p className="text-gray-400">
-            
-          </p> */}
         </div>
 
+        {/* 면접관 선택 */}
+        <div className="space-y-3 text-left">
+          <p className="text-sm font-medium text-gray-300">면접관 선택</p>
+
+          {/* 면접관 카드 */}
+          <div className="grid grid-cols-3 gap-3">
+            {INTERVIEWERS.map((interviewer) => {
+              const isSelected = !isRandom && selectedInterviewerId === interviewer.id;
+              return (
+                <button
+                  key={interviewer.id}
+                  onClick={() => selectInterviewer(interviewer.id)}
+                  disabled={isLoading}
+                  className={`relative aspect-[3/4] rounded-xl overflow-hidden border-2 transition-all duration-200 disabled:cursor-not-allowed ${
+                    isSelected
+                      ? "border-blue-500 shadow-lg shadow-blue-500/30"
+                      : isRandom
+                        ? "border-gray-800 opacity-40 cursor-not-allowed"
+                        : "border-gray-700 hover:border-gray-400"
+                  }`}
+                >
+                  {isRandom ? (
+                    <div className="w-full h-full bg-gray-800 flex items-center justify-center text-4xl text-gray-500">?</div>
+                  ) : (
+                    <img
+                      src={`${BASE_PATH}${interviewer.imageUrl}`}
+                      alt={interviewer.name}
+                      className="w-full h-full object-cover"
+                    />
+                  )}
+                  {isSelected && (
+                    <span className="absolute top-2 right-2 flex h-5 w-5 items-center justify-center rounded-full bg-blue-500 shadow">
+                      <svg className="h-3 w-3 text-white" fill="currentColor" viewBox="0 0 12 12">
+                        <path d="M3.707 5.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4a1 1 0 00-1.414-1.414L5 6.586 3.707 5.293z" />
+                      </svg>
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* 랜덤 선택 버튼 */}
+          <button
+            onClick={toggleRandom}
+            disabled={isLoading}
+            className={`w-full py-3 rounded-xl border-2 transition-all duration-200 flex items-center justify-center gap-2.5 font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed ${
+              isRandom
+                ? "border-purple-500 bg-purple-500/10 text-purple-300 shadow-lg shadow-purple-500/10"
+                : "border-dashed border-gray-600 bg-transparent text-gray-400 hover:border-purple-500/60 hover:text-purple-400 hover:bg-purple-500/5"
+            }`}
+          >
+            {isRandom ? (
+              <span>랜덤 선택됨 — 면접 시작 시 공개 <span className="text-purple-400/60 text-xs"></span></span>
+            ) : (
+              <span>랜덤으로 선택하기</span>
+            )}
+          </button>
+        </div>
+
+        {/* 이력서 업로드 */}
         <div
           onClick={() => !isLoading && fileRef.current?.click()}
           onDrop={handleDrop}
@@ -98,16 +185,10 @@ export default function HomePage() {
             {fileName ? (
               <div>
                 <p className="text-blue-400 font-semibold">{fileName}</p>
-                <p className="text-xs text-gray-500 mt-1">
-                  파일을 다시 선택하려면 클릭하세요.
-                </p>
+                <p className="text-xs text-gray-500 mt-1">파일을 다시 선택하려면 클릭하세요.</p>
               </div>
             ) : (
-              <div>
-                <p className="text-gray-300 font-medium">
-                  이력서 파일을 여기에 드래그하거나 클릭하세요
-                </p>
-              </div>
+              <p className="text-gray-300 font-medium">이력서 파일을 여기에 드래그하거나 클릭하세요</p>
             )}
           </div>
         </div>
@@ -116,33 +197,21 @@ export default function HomePage() {
 
         <button
           onClick={handleStart}
-          disabled={isLoading}
+          disabled={isLoading || !hasSelection}
           className="w-full h-12 flex items-center justify-center rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-70 disabled:cursor-not-allowed font-semibold transition-all duration-300 text-base shadow-lg shadow-blue-600/20 hover:shadow-blue-500/40"
         >
           {isLoading ? (
             <>
-              <svg
-                className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                ></circle>
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                ></path>
+              <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
               </svg>
               <span>질문 생성 중...</span>
             </>
+          ) : !hasSelection ? (
+            "면접관을 선택해 주세요"
+          ) : isRandom ? (
+            "🎲 랜덤 면접 시작하기"
           ) : (
             "면접 시작하기"
           )}

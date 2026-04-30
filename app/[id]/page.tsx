@@ -5,11 +5,11 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import type { SessionData, SessionQA } from "@/types/interview";
 import AvatarPlayer from "@/components/AvatarPlayer";
+import { getInterviewer, type Interviewer } from "@/lib/interviewers";
 
 type AvatarState = "generating" | "playing" | "ready" | "fallback";
 
 const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
-const PRESENTER_IMAGE_URL = process.env.NEXT_PUBLIC_PRESENTER_IMAGE_URL ?? "";
 
 export default function InterviewPage({
   params,
@@ -26,6 +26,7 @@ export default function InterviewPage({
   const currentIndexRef = useRef(0);
 
   const [session, setSession] = useState<SessionData | null>(null);
+  const [interviewer, setInterviewer] = useState<Interviewer>(getInterviewer("kim"));
   const [currentIndex, setCurrentIndex] = useState(0);
   const [transcript, setTranscript] = useState("");
   const [isRecording, setIsRecording] = useState(false);
@@ -46,6 +47,7 @@ export default function InterviewPage({
       .then((r) => (r.ok ? r.json() : null))
       .then((data: SessionData | null) => {
         setSession(data);
+        if (data) setInterviewer(getInterviewer(data.interviewerId));
         setIsLoading(false);
       })
       .catch(() => setIsLoading(false));
@@ -75,10 +77,11 @@ export default function InterviewPage({
     if (!session) return;
     setIsPreparing(true);
     setPrepareProgress(0);
+    const voice = getInterviewer(session.interviewerId).voice;
 
     (async () => {
       for (let i = 0; i < session.qas.length; i++) {
-        const buf = await fetchAudioForIndex(session.qas[i].question);
+        const buf = await fetchAudioForIndex(session.qas[i].question, voice);
         preparedAudio.current.set(i, buf);
         setPrepareProgress(i + 1);
       }
@@ -108,12 +111,12 @@ export default function InterviewPage({
     }
   }
 
-  async function fetchAudioForIndex(questionText: string): Promise<ArrayBuffer | null> {
+  async function fetchAudioForIndex(questionText: string, voice?: string): Promise<ArrayBuffer | null> {
     try {
       const speakRes = await fetch(`${BASE_PATH}/api/speak`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: questionText }),
+        body: JSON.stringify({ text: questionText, voice }),
       });
       const { audioId } = (await speakRes.json()) as { audioId: string | null };
       if (!audioId) return null;
@@ -265,6 +268,10 @@ export default function InterviewPage({
           <span className="text-sm text-gray-400">
             질문 {currentIndex + 1} / {session.qas.length}
           </span>
+          <div className="h-4 w-px bg-gray-700" />
+          <span className="text-sm text-blue-400">
+            {interviewer.name} <span className="text-gray-500">· {interviewer.role}</span>
+          </span>
         </div>
         {isRecording && (
           <div className="flex items-center gap-2">
@@ -295,7 +302,8 @@ export default function InterviewPage({
         >
           <AvatarPlayer
             audioBuffer={currentAudioBuffer}
-            presenterImageUrl={PRESENTER_IMAGE_URL}
+            presenterImageUrl={interviewer.imageUrl}
+            faceId={interviewer.faceId}
             isError={avatarError}
             onStarted={() => setAvatarState("playing")}
             onEnded={() => setAvatarState("ready")}

@@ -1,6 +1,9 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
-export async function POST() {
+export async function POST(req: NextRequest) {
+  const body = await req.json().catch(() => ({}));
+  const faceId = body.faceId;
+
   const res = await fetch("https://api.simli.ai/compose/token", {
     method: "POST",
     headers: {
@@ -8,7 +11,7 @@ export async function POST() {
       "x-simli-api-key": process.env.SIMLI_API_KEY ?? "",
     },
     body: JSON.stringify({
-      faceId: process.env.SIMLI_FACE_ID,
+      faceId,
       apiVersion: "v2",
       maxSessionLength: 600,
       maxIdleTime: 60,

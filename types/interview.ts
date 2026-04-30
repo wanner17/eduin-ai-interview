@@ -19,5 +19,6 @@ export interface SessionData {
   id: string;
   status: string;
   startedAt: string | null;
+  interviewerId: string;
   qas: SessionQA[];
 }

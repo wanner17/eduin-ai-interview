@@ -16,6 +16,7 @@ interface Session {
   id: string;
   userId: string;
   callbackUrl: string | null;
+  interviewerId: string;
   status: string;
   startedAt: Date | null;
   endedAt: Date | null;
@@ -29,6 +30,7 @@ export const sessionStore = {
   createSession(data: {
     userId: string;
     callbackUrl: string | null;
+    interviewerId: string;
     questions: { question: string; intent: string; keywords: string }[];
   }) {
     const sessionId = randomUUID();
@@ -36,6 +38,7 @@ export const sessionStore = {
       id: sessionId,
       userId: data.userId,
       callbackUrl: data.callbackUrl,
+      interviewerId: data.interviewerId,
       status: "IN_PROGRESS",
       startedAt: new Date(),
       endedAt: null,
