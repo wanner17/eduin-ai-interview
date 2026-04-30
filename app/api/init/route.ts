@@ -37,10 +37,11 @@ const DEFAULT_QUESTIONS: GeneratedQuestion[] = [
 ];
 
 export async function POST(req: NextRequest) {
-  const { resumeContent, callbackUrl, interviewerId } = await req.json();
+  const { resumeContent, callbackUrl, interviewerId, interviewType } = await req.json();
 
+  const type = interviewType ?? "general";
   const questions = resumeContent
-    ? await generateInterviewQuestions(resumeContent)
+    ? await generateInterviewQuestions(resumeContent, type)
     : DEFAULT_QUESTIONS;
 
   if (!questions?.length) {
@@ -52,6 +53,7 @@ export async function POST(req: NextRequest) {
     userId: randomUUID(),
     callbackUrl: callbackUrl ?? null,
     interviewerId: interviewerId ?? "kim",
+    interviewType: type,
     questions: questions.map((q) => ({
       question: q.question,
       intent: q.intent,

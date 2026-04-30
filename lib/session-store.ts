@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto";
+import type { InterviewType } from "@/types/interview";
 
 interface QA {
   id: string;
@@ -17,6 +18,7 @@ interface Session {
   userId: string;
   callbackUrl: string | null;
   interviewerId: string;
+  interviewType: InterviewType;
   status: string;
   startedAt: Date | null;
   endedAt: Date | null;
@@ -31,6 +33,7 @@ export const sessionStore = {
     userId: string;
     callbackUrl: string | null;
     interviewerId: string;
+    interviewType: InterviewType;
     questions: { question: string; intent: string; keywords: string }[];
   }) {
     const sessionId = randomUUID();
@@ -39,6 +42,7 @@ export const sessionStore = {
       userId: data.userId,
       callbackUrl: data.callbackUrl,
       interviewerId: data.interviewerId,
+      interviewType: data.interviewType,
       status: "IN_PROGRESS",
       startedAt: new Date(),
       endedAt: null,

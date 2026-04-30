@@ -3,8 +3,26 @@
 import { useState, useRef, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import { INTERVIEWERS } from "@/lib/interviewers";
+import type { InterviewType } from "@/types/interview";
 
 const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+
+const INTERVIEW_TYPES: { id: InterviewType; label: string; description: string }[] = [
+  { id: "general", label: "일반면접", description: "기술·경험·인성 균형" },
+  { id: "pressure", label: "압박면접", description: "날카로운 질문·엄격한 평가" },
+  { id: "pt", label: "PT면접", description: "발표 기반 심층 질문" },
+];
+
+const PT_RANDOM_TOPICS = [
+  "주제: AI 기반 추천 시스템 설계\n내용: 사용자 행동 데이터를 활용한 콘텐츠 추천 알고리즘 설계 및 실시간 성능 최적화 방안 제안",
+  "주제: 마이크로서비스 전환 전략\n내용: 모놀리식 아키텍처에서 MSA로의 단계적 전환 계획, 서비스 분리 기준, 데이터 정합성 유지 방안",
+  "주제: 대용량 트래픽 처리 아키텍처\n내용: 초당 10만 요청을 처리하는 시스템 설계 — 캐싱, 로드밸런싱, 수평 확장 전략",
+  "주제: DevOps 파이프라인 구축 제안\n내용: CI/CD 자동화, 컨테이너 오케스트레이션, 모니터링 체계 수립을 통한 배포 안정성 향상",
+  "주제: 레거시 시스템 현대화 방안\n내용: 10년된 레거시 코드베이스를 최신 기술 스택으로 점진적으로 마이그레이션하는 전략",
+  "주제: 실시간 데이터 파이프라인 설계\n내용: Kafka 기반 이벤트 스트리밍으로 데이터 지연을 최소화하는 ETL 파이프라인 구축 방안",
+  "주제: 보안 취약점 개선 계획\n내용: OWASP Top 10 기반 취약점 분석 결과와 우선순위별 보안 강화 로드맵 제시",
+  "주제: 모바일 앱 성능 최적화\n내용: 앱 초기 로딩 시간 3초 → 1초 단축을 위한 번들 최적화, 지연 로딩, 캐싱 전략",
+];
 
 export default function HomePage() {
   const router = useRouter();
@@ -15,6 +33,11 @@ export default function HomePage() {
   const [error, setError] = useState("");
   const [selectedInterviewerId, setSelectedInterviewerId] = useState<string | null>(null);
   const [isRandom, setIsRandom] = useState(false);
+  const [selectedInterviewType, setSelectedInterviewType] = useState<InterviewType | null>(null);
+  const [ptContent, setPtContent] = useState("");
+  const [ptMode, setPtMode] = useState<"file" | "type" | "random">("type");
+  const [ptFileName, setPtFileName] = useState("");
+  const ptFileRef = useRef<HTMLInputElement>(null);
 
   const selectInterviewer = (id: string) => {
     if (!isRandom && selectedInterviewerId === id) {
@@ -62,17 +85,21 @@ export default function HomePage() {
   };
 
   const handleStart = async () => {
-    if (!selectedInterviewerId) return;
+    if (!selectedInterviewerId || !selectedInterviewType) return;
     setIsLoading(true);
     setError("");
     try {
+      const resumeContent =
+        selectedInterviewType === "pt" ? ptContent || null : resumeText || null;
+
       const res = await fetch(`${BASE_PATH}/api/init`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          resumeContent: resumeText || null,
+          resumeContent,
           callbackUrl: null,
           interviewerId: selectedInterviewerId,
+          interviewType: selectedInterviewType,
         }),
       });
       if (!res.ok) {
@@ -93,7 +120,12 @@ export default function HomePage() {
     }
   };
 
-  const hasSelection = selectedInterviewerId !== null;
+  const isPt = selectedInterviewType === "pt";
+  const isPtContentMissing = isPt && ptContent.trim() === "";
+  const hasSelection =
+    selectedInterviewerId !== null &&
+    selectedInterviewType !== null &&
+    !isPtContentMissing;
 
   return (
     <main className="min-h-screen w-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-gray-800 via-gray-950 to-black flex items-center justify-center text-white p-4 sm:p-6">
@@ -164,34 +196,165 @@ export default function HomePage() {
           </button>
         </div>
 
-        {/* 이력서 업로드 */}
-        <div
-          onClick={() => !isLoading && fileRef.current?.click()}
-          onDrop={handleDrop}
-          onDragOver={(e) => e.preventDefault()}
-          className={`relative group border-2 border-dashed border-gray-700 hover:border-blue-500 hover:bg-gray-900/50 rounded-2xl p-8 sm:p-10 text-center transition-all duration-300 ${
-            isLoading ? "cursor-not-allowed opacity-60" : "cursor-pointer"
-          }`}
-        >
-          <input
-            ref={fileRef}
-            type="file"
-            className="hidden"
-            onChange={handleFile}
-            disabled={isLoading}
-          />
-          <div className="flex flex-col items-center justify-center space-y-3">
-            <UploadIcon className="w-10 h-10 text-gray-500 group-hover:text-blue-400 transition-colors" />
-            {fileName ? (
-              <div>
-                <p className="text-blue-400 font-semibold">{fileName}</p>
-                <p className="text-xs text-gray-500 mt-1">파일을 다시 선택하려면 클릭하세요.</p>
-              </div>
-            ) : (
-              <p className="text-gray-300 font-medium">이력서 파일을 여기에 드래그하거나 클릭하세요</p>
-            )}
+        {/* 면접 유형 선택 */}
+        <div className="space-y-3 text-left">
+          <p className="text-sm font-medium text-black/80 text-gray300">면접 유형 선택</p>
+          <div className="grid grid-cols-3 gap-3">
+            {INTERVIEW_TYPES.map((type) => {
+              const isSelected = selectedInterviewType === type.id;
+              return (
+                <button
+                  key={type.id}
+                  onClick={() => setSelectedInterviewType(type.id)}
+                  disabled={isLoading}
+                  className={`flex flex-col items-center justify-center gap-1.5 py-4 px-2 rounded-xl border-2 transition-all duration-200 disabled:cursor-not-allowed ${
+                    isSelected
+                      ? "border-blue-500 bg-blue-500/10 shadow-lg shadow-blue-500/20"
+                      : "border-black/10 hover:border-black-700 hover:border-black/20 hover:bg-black400 bg-transparent"
+                  }`}
+                >
+                  <span className={`text-sm font-semibold ${isSelected ? "text-blue-300" : "text-gray-500"}`}>
+                    {type.label}
+                  </span>
+                  <span className={`text-xs text-center leading-tight ${isSelected ? "text-blue-400/80" : "text-gray-500"}`}>
+                    {type.description}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
+
+        {/* PT면접: 발표 내용 입력 / 그외: 이력서 업로드 */}
+        {isPt ? (
+          <div className="space-y-3 text-left">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium text-gray-300">
+                발표 주제 및 내용 <span className="text-red-400">*</span>
+              </p>
+              <div className="flex gap-1 bg-gray-800 rounded-lg p-1">
+                {(["file", "type", "random"] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    onClick={() => { setPtMode(mode); setPtContent(""); setPtFileName(""); }}
+                    disabled={isLoading}
+                    className={`text-xs px-2.5 py-1 rounded-md transition-all ${
+                      ptMode === mode
+                        ? "bg-blue-600 text-white"
+                        : "text-gray-400 hover:text-gray-200"
+                    }`}
+                  >
+                    {mode === "file" ? "파일 업로드" : mode === "type" ? "직접 입력" : "랜덤 생성"}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {ptMode === "type" && (
+              <textarea
+                value={ptContent}
+                onChange={(e) => setPtContent(e.target.value)}
+                disabled={isLoading}
+                rows={5}
+                placeholder={"발표 주제, 개요, 핵심 내용을 입력하세요.\n예) 주제: 마이크로서비스 전환 전략\n내용: 모놀리식 → MSA 전환 시 고려사항..."}
+                className="w-full p-4 rounded-xl bg-gray-900 border-2 border-gray-700 focus:border-blue-500 focus:outline-none text-white placeholder-gray-500 text-sm resize-none transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              />
+            )}
+
+            {ptMode === "file" && (
+              <div
+                onClick={() => !isLoading && ptFileRef.current?.click()}
+                onDrop={async (e) => {
+                  e.preventDefault();
+                  if (isLoading) return;
+                  const file = e.dataTransfer.files?.[0];
+                  if (!file) return;
+                  setPtFileName(file.name);
+                  setPtContent(await file.text());
+                }}
+                onDragOver={(e) => e.preventDefault()}
+                className={`border-2 border-dashed border-gray-700 hover:border-purple-500 hover:bg-gray-900/50 rounded-xl p-8 text-center transition-all duration-300 ${
+                  isLoading ? "cursor-not-allowed opacity-60" : "cursor-pointer"
+                }`}
+              >
+                <input
+                  ref={ptFileRef}
+                  type="file"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    setPtFileName(file.name);
+                    setPtContent(await file.text());
+                  }}
+                  disabled={isLoading}
+                />
+                <div className="flex flex-col items-center gap-2">
+                  <UploadIcon className="w-8 h-8 text-gray-500" />
+                  {ptFileName ? (
+                    <p className="text-purple-400 font-semibold">{ptFileName}</p>
+                  ) : (
+                    <p className="text-gray-300 text-sm">발표 자료 파일을 드래그하거나 클릭하세요</p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {ptMode === "random" && (
+              <div className="space-y-3">
+                {ptContent ? (
+                  <div className="p-4 rounded-xl bg-gray-900 border-2 border-purple-700 text-sm text-gray-200 whitespace-pre-wrap leading-relaxed">
+                    {ptContent}
+                  </div>
+                ) : (
+                  <div className="p-4 rounded-xl bg-gray-900 border-2 border-dashed border-gray-700 text-sm text-gray-500 text-center">
+                    아래 버튼을 눌러 랜덤 주제를 생성하세요
+                  </div>
+                )}
+                <button
+                  onClick={() => {
+                    const topic = PT_RANDOM_TOPICS[Math.floor(Math.random() * PT_RANDOM_TOPICS.length)];
+                    setPtContent(topic);
+                  }}
+                  disabled={isLoading}
+                  className="w-full py-2.5 rounded-xl border-2 border-dashed border-purple-700 text-purple-300 text-sm hover:bg-purple-900/20 transition-colors disabled:opacity-50"
+                >
+                  {ptContent ? "다른 주제 생성" : "랜덤 주제 생성"}
+                </button>
+              </div>
+            )}
+
+            <p className="text-xs text-gray-500">입력한 내용을 바탕으로 심층 면접 질문이 생성됩니다.</p>
+          </div>
+        ) : (
+          <div
+            onClick={() => !isLoading && fileRef.current?.click()}
+            onDrop={handleDrop}
+            onDragOver={(e) => e.preventDefault()}
+            className={`relative group border-2 border-dashed border-gray-700 hover:border-blue-500 hover:bg-gray-900/50 rounded-2xl p-8 sm:p-10 text-center transition-all duration-300 ${
+              isLoading ? "cursor-not-allowed opacity-60" : "cursor-pointer"
+            }`}
+          >
+            <input
+              ref={fileRef}
+              type="file"
+              className="hidden"
+              onChange={handleFile}
+              disabled={isLoading}
+            />
+            <div className="flex flex-col items-center justify-center space-y-3">
+              <UploadIcon className="w-10 h-10 text-gray-500 group-hover:text-blue-400 transition-colors" />
+              {fileName ? (
+                <div>
+                  <p className="text-blue-400 font-semibold">{fileName}</p>
+                  <p className="text-xs text-gray-500 mt-1">파일을 다시 선택하려면 클릭하세요.</p>
+                </div>
+              ) : (
+                <p className="text-gray-300 font-medium">이력서 파일을 여기에 드래그하거나 클릭하세요</p>
+              )}
+            </div>
+          </div>
+        )}
 
         {error && <p className="text-red-400 text-sm animate-pulse">{error}</p>}
 
@@ -208,17 +371,23 @@ export default function HomePage() {
               </svg>
               <span>질문 생성 중...</span>
             </>
-          ) : !hasSelection ? (
+          ) : !selectedInterviewerId ? (
             "면접관을 선택해 주세요"
+          ) : !selectedInterviewType ? (
+            "면접 유형을 선택해 주세요"
+          ) : isPtContentMissing ? (
+            "발표 내용을 입력해 주세요"
           ) : isRandom ? (
-            "🎲 랜덤 면접 시작하기"
+            "랜덤 면접 시작하기"
           ) : (
             "면접 시작하기"
           )}
         </button>
 
         <p className="text-center text-xs text-gray-600">
-          이력서 없이도 기본 질문으로 면접을 시작할 수 있습니다.
+          {isPt
+            ? "발표 내용을 바탕으로 맞춤형 PT 면접이 진행됩니다."
+            : "이력서 없이도 기본 질문으로 면접을 시작할 수 있습니다."}
         </p>
       </div>
     </main>

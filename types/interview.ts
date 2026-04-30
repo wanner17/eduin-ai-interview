@@ -1,3 +1,5 @@
+export type InterviewType = "general" | "pressure" | "pt";
+
 export interface GeneratedQuestion {
   question: string;
   intent: string;
@@ -20,5 +22,6 @@ export interface SessionData {
   status: string;
   startedAt: string | null;
   interviewerId: string;
+  interviewType: InterviewType;
   qas: SessionQA[];
 }

@@ -14,7 +14,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "QA not found" }, { status: 404 });
   }
 
-  const { feedback, score } = await generateFeedback(qa.question, answer, qa.keywords);
+  const session = sessionStore.getSession(qa.sessionId);
+  const interviewType = session?.interviewType ?? "general";
+
+  const { feedback, score } = await generateFeedback(qa.question, answer, qa.keywords, interviewType);
 
   sessionStore.updateQA(qaId, { answer, feedback, score });
 

@@ -272,6 +272,20 @@ export default function InterviewPage({
           <span className="text-sm text-blue-400">
             {interviewer.name} <span className="text-gray-500">· {interviewer.role}</span>
           </span>
+          {session.interviewType && (
+            <>
+              <div className="h-4 w-px bg-gray-700" />
+              <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                session.interviewType === "pressure"
+                  ? "bg-red-900/50 text-red-300"
+                  : session.interviewType === "pt"
+                    ? "bg-purple-900/50 text-purple-300"
+                    : "bg-gray-800 text-gray-400"
+              }`}>
+                {session.interviewType === "general" ? "일반면접" : session.interviewType === "pressure" ? "압박면접" : "PT면접"}
+              </span>
+            </>
+          )}
         </div>
         {isRecording && (
           <div className="flex items-center gap-2">
