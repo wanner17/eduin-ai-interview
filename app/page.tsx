@@ -138,7 +138,7 @@ export default function HomePage() {
 
         {/* 면접관 선택 */}
         <div className="space-y-3 text-left">
-          <p className="text-sm font-medium text-gray-300">면접관 선택</p>
+          <p className="text-sm font-medium text-gray-500">면접관 선택</p>
 
           {/* 면접관 카드 */}
           <div className="grid grid-cols-3 gap-3">
