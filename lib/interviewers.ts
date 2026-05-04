@@ -11,7 +11,7 @@ export interface Interviewer {
 export const INTERVIEWERS: Interviewer[] = [
   {
     id: "kim",
-    name: "Sabour",
+    name: "김도현",
     role: "CTO",
     voice: "onyx",
     faceId: "7e74d6e7-d559-4394-bd56-4923a3ab75ad",
@@ -20,7 +20,7 @@ export const INTERVIEWERS: Interviewer[] = [
   },
   {
     id: "lee",
-    name: "Tina",
+    name: "박서연",
     role: "HR 매니저",
     voice: "nova",
     faceId: "cace3ef7-a4c4-425d-a8cf-a5358eb0c427",
@@ -29,7 +29,7 @@ export const INTERVIEWERS: Interviewer[] = [
   },
   {
     id: "park",
-    name: "Chimpan",
+    name: "이준호",
     role: "Tech Lead",
     voice: "echo",
     faceId: "6926a39d-638b-49c5-9328-79efa034e9a4",
