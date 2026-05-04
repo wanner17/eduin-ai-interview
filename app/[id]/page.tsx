@@ -5,6 +5,12 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import type { SessionData, SessionQA } from "@/types/interview";
 import AvatarPlayer from "@/components/AvatarPlayer";
+import MuseTalkPlayer from "@/components/MuseTalkPlayer";
+
+const AvatarComponent =
+  process.env.NEXT_PUBLIC_AVATAR_PROVIDER === "musetalk"
+    ? MuseTalkPlayer
+    : AvatarPlayer;
 import { getInterviewer, type Interviewer } from "@/lib/interviewers";
 
 type AvatarState = "generating" | "playing" | "ready" | "fallback";
@@ -47,7 +53,20 @@ export default function InterviewPage({
       .then((r) => (r.ok ? r.json() : null))
       .then((data: SessionData | null) => {
         setSession(data);
-        if (data) setInterviewer(getInterviewer(data.interviewerId));
+        if (data) {
+          const iv = getInterviewer(data.interviewerId);
+          setInterviewer(iv);
+          if (process.env.NEXT_PUBLIC_AVATAR_PROVIDER === "musetalk") {
+            fetch(`${BASE_PATH}/api/musetalk-prepare`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                imageUrl: iv.imageUrl,
+                avatarId: iv.museTalkId,
+              }),
+            }).catch(console.error);
+          }
+        }
         setIsLoading(false);
       })
       .catch(() => setIsLoading(false));
@@ -314,10 +333,14 @@ export default function InterviewPage({
           }}
           transition={{ duration: 0.5, ease: "easeInOut" }}
         >
-          <AvatarPlayer
+          <AvatarComponent
             audioBuffer={currentAudioBuffer}
             presenterImageUrl={interviewer.imageUrl}
-            faceId={interviewer.faceId}
+            faceId={
+              process.env.NEXT_PUBLIC_AVATAR_PROVIDER === "musetalk"
+                ? interviewer.museTalkId
+                : interviewer.faceId
+            }
             isError={avatarError}
             onStarted={() => setAvatarState("playing")}
             onEnded={() => setAvatarState("ready")}

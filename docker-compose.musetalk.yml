@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_AVATAR_PROVIDER=musetalk
+    ports:
+      - "3000:3000"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - SIMLI_API_KEY=${SIMLI_API_KEY}
+      - MUSETALK_WS_URL=${MUSETALK_WS_URL}
+      - MUSETALK_SERVER_URL=${MUSETALK_SERVER_URL}
+      - MUSETALK_API_KEY=${MUSETALK_API_KEY}
+    restart: unless-stopped

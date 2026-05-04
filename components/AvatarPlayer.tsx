@@ -114,7 +114,7 @@ export default function AvatarPlayer({
   return (
     <div className="relative w-full h-full bg-gray-900 rounded-xl overflow-hidden">
       {presenterImageUrl && !isConnected && !isConnecting && (
-        <img src={presenterImageUrl} alt="면접관" className="w-full h-full object-cover" />
+        <img src={presenterImageUrl} alt="면접관" className="w-full h-full object-contain" />
       )}
 
       <video

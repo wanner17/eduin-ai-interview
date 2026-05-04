@@ -9,7 +9,8 @@ FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-# Next.js 빌드
+ARG NEXT_PUBLIC_AVATAR_PROVIDER
+ENV NEXT_PUBLIC_AVATAR_PROVIDER=${NEXT_PUBLIC_AVATAR_PROVIDER}
 RUN npm run build
 
 FROM base AS runner
