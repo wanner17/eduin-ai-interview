@@ -106,9 +106,8 @@ export default function InterviewPage({
         const buf = await fetchAudioForIndex(session.qas[i].question, voice);
         preparedAudio.current.set(i, buf);
         if (process.env.NEXT_PUBLIC_AVATAR_PROVIDER === "musetalk" && buf) {
-          fetchFramesForIndex(buf, iv.museTalkId).then((frames) => {
-            if (frames) preparedFrames.current.set(i, frames);
-          });
+          const frames = await fetchFramesForIndex(buf, iv.museTalkId);
+          if (frames) preparedFrames.current.set(i, frames);
         }
         setPrepareProgress(i + 1);
       }
