@@ -92,22 +92,14 @@ export default function MuseTalkPlayer({
 
         await audio.play();
 
-        // Render frames in sync with audio
-        const frameInterval = 1000 / fps;
-        let frameIdx = 0;
-        let lastTime = performance.now();
-
-        const animate = (now: number) => {
+        // audio.currentTime 기준으로 프레임 결정 → 드리프트 없음
+        const animate = () => {
           if (cancelled) return;
-          if (frameIdx >= images.length) {
-            callbacksRef.current.onEnded();
-            return;
-          }
-          if (now - lastTime >= frameInterval) {
-            ctx.drawImage(images[frameIdx], 0, 0);
-            frameIdx++;
-            lastTime = now;
-          }
+          const frameIdx = Math.min(
+            Math.floor(audio.currentTime * fps),
+            images.length - 1
+          );
+          if (images[frameIdx]) ctx.drawImage(images[frameIdx], 0, 0);
           animRef.current = requestAnimationFrame(animate);
         };
         animRef.current = requestAnimationFrame(animate);
