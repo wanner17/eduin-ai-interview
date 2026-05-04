@@ -12,6 +12,7 @@ interface Props {
   onStarted: () => void;
   onEnded: () => void;
   onError: () => void;
+  preloadedFrames?: string[] | null;
 }
 
 export default function AvatarPlayer({

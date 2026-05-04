@@ -12,6 +12,7 @@ interface Props {
   onStarted: () => void;
   onEnded: () => void;
   onError: () => void;
+  preloadedFrames?: string[] | null;
 }
 
 export default function MuseTalkPlayer({
@@ -22,6 +23,7 @@ export default function MuseTalkPlayer({
   onStarted,
   onEnded,
   onError,
+  preloadedFrames,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -44,19 +46,23 @@ export default function MuseTalkPlayer({
     (async () => {
       let audioUrl: string | null = null;
       try {
-        const res = await fetch(
-          `${BASE_PATH}/api/musetalk?interviewer_id=${faceId}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/octet-stream" },
-            body: audioBuffer,
-          }
-        );
-        if (!res.ok) throw new Error(`musetalk api ${res.status}`);
-        const { frames, fps } = (await res.json()) as {
-          frames: string[];
-          fps: number;
-        };
+        let frames: string[];
+        const fps = 25;
+        if (preloadedFrames && preloadedFrames.length > 0) {
+          frames = preloadedFrames;
+        } else {
+          const res = await fetch(
+            `${BASE_PATH}/api/musetalk?interviewer_id=${faceId}`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/octet-stream" },
+              body: audioBuffer,
+            }
+          );
+          if (!res.ok) throw new Error(`musetalk api ${res.status}`);
+          const json = (await res.json()) as { frames: string[]; fps: number };
+          frames = json.frames;
+        }
         if (cancelled) return;
 
         // Preload images

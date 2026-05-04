@@ -29,6 +29,7 @@ export default function InterviewPage({
   const streamRef = useRef<MediaStream | null>(null);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const preparedAudio = useRef<Map<number, ArrayBuffer | null>>(new Map());
+  const preparedFrames = useRef<Map<number, string[]>>(new Map());
   const currentIndexRef = useRef(0);
 
   const [session, setSession] = useState<SessionData | null>(null);
@@ -46,6 +47,7 @@ export default function InterviewPage({
 
   const [avatarState, setAvatarState] = useState<AvatarState>("generating");
   const [currentAudioBuffer, setCurrentAudioBuffer] = useState<ArrayBuffer | null>(null);
+  const [currentFrames, setCurrentFrames] = useState<string[] | null>(null);
   const [avatarError, setAvatarError] = useState(false);
 
   useEffect(() => {
@@ -99,9 +101,15 @@ export default function InterviewPage({
     const voice = getInterviewer(session.interviewerId).voice;
 
     (async () => {
+      const iv = getInterviewer(session.interviewerId);
       for (let i = 0; i < session.qas.length; i++) {
         const buf = await fetchAudioForIndex(session.qas[i].question, voice);
         preparedAudio.current.set(i, buf);
+        if (process.env.NEXT_PUBLIC_AVATAR_PROVIDER === "musetalk" && buf) {
+          fetchFramesForIndex(buf, iv.museTalkId).then((frames) => {
+            if (frames) preparedFrames.current.set(i, frames);
+          });
+        }
         setPrepareProgress(i + 1);
       }
       setIsPreparing(false);
@@ -120,13 +128,36 @@ export default function InterviewPage({
   function loadAudioFromCache(idx: number) {
     const buf = preparedAudio.current.get(idx) ?? null;
     setCurrentAudioBuffer(null);
+    setCurrentFrames(null);
     setAvatarError(false);
     if (buf) {
       setCurrentAudioBuffer(buf);
+      setCurrentFrames(preparedFrames.current.get(idx) ?? null);
       setAvatarState("generating");
     } else {
       setAvatarError(true);
       setAvatarState("fallback");
+    }
+  }
+
+  async function fetchFramesForIndex(
+    audioBuffer: ArrayBuffer,
+    museTalkId: string
+  ): Promise<string[] | null> {
+    try {
+      const res = await fetch(
+        `${BASE_PATH}/api/musetalk?interviewer_id=${museTalkId}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/octet-stream" },
+          body: audioBuffer,
+        }
+      );
+      if (!res.ok) return null;
+      const { frames } = (await res.json()) as { frames: string[] };
+      return frames;
+    } catch {
+      return null;
     }
   }
 
@@ -345,6 +376,7 @@ export default function InterviewPage({
             onStarted={() => setAvatarState("playing")}
             onEnded={() => setAvatarState("ready")}
             onError={() => { setAvatarError(true); setAvatarState("fallback"); }}
+            preloadedFrames={currentFrames}
           />
           {/* 질문 자막 */}
           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent px-4 pt-8 pb-4 rounded-b-xl pointer-events-none">
