@@ -99,14 +99,26 @@ export default function InterviewPage({
     setIsPreparing(true);
     setPrepareProgress(0);
     const voice = getInterviewer(session.interviewerId).voice;
+    let cancelled = false;
 
     (async () => {
       const iv = getInterviewer(session.interviewerId);
-      for (let i = 0; i < session.qas.length; i++) {
-        const buf = await fetchAudioForIndex(session.qas[i].question, voice);
+      const musetalk = process.env.NEXT_PUBLIC_AVATAR_PROVIDER === "musetalk";
+
+      // TTS 전체 병렬 발사
+      const allBufs = await Promise.all(
+        session.qas.map((qa) => fetchAudioForIndex(qa.question, voice))
+      );
+      if (cancelled) return;
+
+      // MT 순차 처리 (GPU 1개 → 순차가 최적)
+      for (let i = 0; i < allBufs.length; i++) {
+        if (cancelled) return;
+        const buf = allBufs[i];
         preparedAudio.current.set(i, buf);
-        if (process.env.NEXT_PUBLIC_AVATAR_PROVIDER === "musetalk" && buf) {
+        if (musetalk && buf) {
           const frames = await fetchFramesForIndex(buf, iv.museTalkId);
+          if (cancelled) return;
           if (frames) preparedFrames.current.set(i, frames);
         }
         setPrepareProgress(i + 1);
@@ -114,6 +126,8 @@ export default function InterviewPage({
       setIsPreparing(false);
       loadAudioFromCache(0);
     })();
+
+    return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session]);
 
