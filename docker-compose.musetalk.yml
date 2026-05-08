@@ -15,4 +15,7 @@ services:
       - MUSETALK_WS_URL=${MUSETALK_WS_URL}
       - MUSETALK_SERVER_URL=${MUSETALK_SERVER_URL}
       - MUSETALK_API_KEY=${MUSETALK_API_KEY}
+      - GOOGLE_APPLICATION_CREDENTIALS=/run/secrets/google-stt-key
+    volumes:
+      - ./google-stt-key.json:/run/secrets/google-stt-key:ro
     restart: unless-stopped

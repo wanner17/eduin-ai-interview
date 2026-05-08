@@ -2,9 +2,11 @@ import { SpeechClient } from "@google-cloud/speech";
 import { NextRequest, NextResponse } from "next/server";
 import path from "path";
 
-const client = new SpeechClient({
-  keyFilename: path.join(process.cwd(), "google-stt-key.json"),
-});
+const client = new SpeechClient(
+  process.env.GOOGLE_APPLICATION_CREDENTIALS
+    ? {}
+    : { keyFilename: path.join(process.cwd(), "google-stt-key.json") }
+);
 
 export async function POST(req: NextRequest) {
   const formData = await req.formData();
