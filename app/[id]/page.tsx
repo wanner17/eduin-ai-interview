@@ -28,6 +28,10 @@ export default function InterviewPage({
   const webcamRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const finalAudioBlobRef = useRef<Blob | null>(null);
+  const audioReadyPromiseRef = useRef<Promise<void>>(Promise.resolve());
   const preparedAudio = useRef<Map<number, ArrayBuffer | null>>(new Map());
   const preparedFrames = useRef<Map<number, string[]>>(new Map());
   const currentIndexRef = useRef(0);
@@ -198,39 +202,61 @@ export default function InterviewPage({
     return () => clearInterval(timer);
   }, [isRecording]);
 
-  const startRecording = useCallback(() => {
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const startRecording = useCallback(async () => {
+    try {
+      const micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-    if (!SR) {
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (SR) {
+        const recognition = new SR();
+        recognition.lang = "ko-KR";
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.onresult = (e: SpeechRecognitionEvent) => {
+          let text = "";
+          for (let i = 0; i < e.results.length; i++) {
+            text += e.results[i][0].transcript;
+          }
+          setTranscript(text);
+        };
+        recognition.start();
+        recognitionRef.current = recognition;
+      }
+
+      const recorder = new MediaRecorder(micStream);
+      audioChunksRef.current = [];
+      finalAudioBlobRef.current = null;
+      audioReadyPromiseRef.current = new Promise<void>((resolve) => {
+        recorder.onstop = () => {
+          finalAudioBlobRef.current = new Blob(audioChunksRef.current, { type: recorder.mimeType });
+          micStream.getTracks().forEach((t) => t.stop());
+          resolve();
+        };
+      });
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+      recorder.start();
+      recorderRef.current = recorder;
+
+      setIsRecording(true);
+      setElapsed(0);
+      setTranscript("");
+    } catch {
       setSttSupported(false);
       setIsRecording(true);
       setElapsed(0);
-      return;
     }
-
-    const recognition = new SR();
-    recognition.lang = "ko-KR";
-    recognition.continuous = true;
-    recognition.interimResults = true;
-
-    recognition.onresult = (e: SpeechRecognitionEvent) => {
-      let text = "";
-      for (let i = 0; i < e.results.length; i++) {
-        text += e.results[i][0].transcript;
-      }
-      setTranscript(text);
-    };
-
-    recognition.start();
-    recognitionRef.current = recognition;
-    setIsRecording(true);
-    setElapsed(0);
-    setTranscript("");
   }, []);
 
   const stopRecording = useCallback(() => {
     recognitionRef.current?.stop();
     recognitionRef.current = null;
+    const recorder = recorderRef.current;
+    if (recorder?.state === "recording") {
+      recorder.stop();
+    }
+    recorderRef.current = null;
     setIsRecording(false);
   }, []);
 
@@ -239,18 +265,41 @@ export default function InterviewPage({
     setIsSubmitting(true);
     stopRecording();
 
+    await audioReadyPromiseRef.current;
+
     const qa: SessionQA = session.qas[currentIndex];
     const isLast = currentIndex === session.qas.length - 1;
+
+    let finalTranscript = transcript;
+    const audioBlob = finalAudioBlobRef.current;
+
+    if (audioBlob && audioBlob.size > 0) {
+      try {
+        const fd = new FormData();
+        fd.append("audio", audioBlob);
+        fd.append("mimeType", audioBlob.type);
+        const res = await fetch(`${BASE_PATH}/api/transcribe`, { method: "POST", body: fd });
+        const { transcript: googleTranscript } = (await res.json()) as { transcript: string };
+        if (googleTranscript) {
+          finalTranscript = googleTranscript;
+          setTranscript(googleTranscript);
+        }
+      } catch {
+        // fallback to Web Speech API transcript
+      }
+    }
 
     await fetch(`${BASE_PATH}/api/answer`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ qaId: qa.id, answer: transcript, isLast }),
+      body: JSON.stringify({ qaId: qa.id, answer: finalTranscript, isLast }),
     });
 
     if (!isLast) {
       setCurrentIndex((i) => i + 1);
       setTranscript("");
+      finalAudioBlobRef.current = null;
+      audioReadyPromiseRef.current = Promise.resolve();
       setIsSubmitting(false);
     } else {
       window.parent.postMessage(
