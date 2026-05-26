@@ -3,36 +3,25 @@ import type { GeneratedQuestion, InterviewType } from "@/types/interview";
 
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-const QUESTION_PROMPTS: Record<InterviewType, string> = {
-  general: `당신은 10년 경력의 기술 면접관입니다.
-이력서를 분석하여 면접 질문 5개를 생성하세요:
-- 기술 질문 2개 (technical): 이력서의 기술 스택과 프로젝트 경험 기반
-- 경험 질문 2개 (experience): 실제 업무/프로젝트 경험 관련
-- 인성 질문 1개 (personality): 협업, 문제해결 방식 관련
-
-반드시 아래 JSON 형식으로만 응답하세요:
-{"questions":[{"question":"질문 내용","intent":"이 질문의 평가 목적","keywords":["핵심키워드1","핵심키워드2"],"type":"technical"}]}`,
-
-  pressure: `당신은 압박 면접 전문 면접관입니다. 지원자를 날카롭게 평가하세요.
-이력서를 분석하여 압박 면접 질문 5개를 생성하세요:
-- 지원자의 약점이나 모순을 파고드는 질문 2개 (technical)
-- 예상치 못한 상황 대처나 실패 경험을 구체적으로 파고드는 질문 2개 (experience)
-- 지원자의 가치관이나 판단력에 도전하는 질문 1개 (personality)
-
-질문은 날카롭고 구체적이어야 하며, 단순한 답변을 허용하지 않는 형태로 작성하세요.
-반드시 아래 JSON 형식으로만 응답하세요:
-{"questions":[{"question":"질문 내용","intent":"이 질문의 평가 목적","keywords":["핵심키워드1","핵심키워드2"],"type":"technical"}]}`,
-
-  pt: `당신은 PT 면접 전문 면접관입니다.
-이력서를 분석하여 발표 면접 질문 5개를 생성하세요:
-- 발표 주제나 내용의 논리적 구조를 검증하는 질문 2개 (technical)
-- 발표 내용의 실현 가능성이나 근거를 파고드는 질문 2개 (experience)
-- 발표자의 전달력과 설득력을 평가하는 질문 1개 (personality)
-
-질문은 지원자가 발표한 내용에 대해 심층적으로 검토하는 형태로 작성하세요.
-반드시 아래 JSON 형식으로만 응답하세요:
-{"questions":[{"question":"질문 내용","intent":"이 질문의 평가 목적","keywords":["핵심키워드1","핵심키워드2"],"type":"technical"}]}`,
+const TYPE_STYLE: Record<InterviewType, string> = {
+  general: `당신은 10년 경력의 기술 면접관입니다. 이력서를 분석하여 기술(technical), 경험(experience), 인성(personality) 영역을 균형 있게 배분한 면접 질문을 생성하세요.`,
+  pressure: `당신은 압박 면접 전문 면접관입니다. 지원자를 날카롭게 평가하세요. 약점·모순을 파고드는 질문, 실패 경험을 구체적으로 묻는 질문, 가치관에 도전하는 질문을 포함하세요. 질문은 날카롭고 구체적이어야 하며, 단순한 답변을 허용하지 않는 형태로 작성하세요.`,
+  pt: `당신은 PT 면접 전문 면접관입니다. 발표 내용의 논리적 구조 검증, 실현 가능성·근거 검토, 전달력·설득력 평가 질문을 포함하세요. 질문은 지원자가 발표한 내용을 심층적으로 검토하는 형태로 작성하세요.`,
 };
+
+function buildQuestionSystemPrompt(
+  interviewType: InterviewType,
+  count: number,
+  jobRole?: string,
+  focusKeywords?: string[]
+): string {
+  const lines: string[] = [TYPE_STYLE[interviewType]];
+  if (jobRole) lines.push(`지원 직무: ${jobRole}`);
+  if (focusKeywords?.length) lines.push(`중점 평가 영역: ${focusKeywords.join(", ")} — 이 영역 관련 질문을 우선적으로 포함하세요.`);
+  lines.push(`\n면접 질문 ${count}개를 생성하세요.`);
+  lines.push(`반드시 아래 JSON 형식으로만 응답하세요:\n{"questions":[{"question":"질문 내용","intent":"이 질문의 평가 목적","keywords":["핵심키워드1","핵심키워드2"],"type":"technical"}]}\ntype은 "technical", "experience", "personality" 중 하나입니다.`);
+  return lines.join("\n");
+}
 
 const FEEDBACK_PROMPTS: Record<InterviewType, string> = {
   general: `당신은 기술 면접관입니다. 지원자의 답변을 평가하세요.
@@ -57,14 +46,22 @@ score는 0-100 사이 정수입니다.`,
 
 export async function generateInterviewQuestions(
   resumeContent: string,
-  interviewType: InterviewType = "general"
+  interviewType: InterviewType = "general",
+  options: { jobRole?: string; focusKeywords?: string[]; questionCount?: number } = {}
 ): Promise<GeneratedQuestion[]> {
+  const { jobRole, focusKeywords, questionCount = 5 } = options;
+  const systemPrompt = buildQuestionSystemPrompt(interviewType, questionCount, jobRole, focusKeywords);
   const response = await client.chat.completions.create({
     model: "gpt-4o",
     response_format: { type: "json_object" },
     messages: [
-      { role: "system", content: QUESTION_PROMPTS[interviewType] },
-      { role: "user", content: `이력서:\n\n${resumeContent}` },
+      { role: "system", content: systemPrompt },
+      {
+        role: "user",
+        content: resumeContent
+          ? `이력서:\n\n${resumeContent}`
+          : "이력서가 제공되지 않았습니다. 지정된 직무와 평가 영역에 맞는 일반적인 면접 질문을 생성해 주세요.",
+      },
     ],
     temperature: 0.7,
   });

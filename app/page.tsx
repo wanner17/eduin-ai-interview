@@ -4,6 +4,7 @@ import { useState, useRef, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import { INTERVIEWERS } from "@/lib/interviewers";
 import type { InterviewType } from "@/types/interview";
+import { JobSelector } from "@/components/JobSelector";
 
 const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
@@ -24,6 +25,15 @@ const PT_RANDOM_TOPICS = [
   "주제: 모바일 앱 성능 최적화\n내용: 앱 초기 로딩 시간 3초 → 1초 단축을 위한 번들 최적화, 지연 로딩, 캐싱 전략",
 ];
 
+
+const FOCUS_KEYWORDS = [
+  "문제해결능력", "커뮤니케이션", "리더십", "협업/팀워크",
+  "프로젝트 경험", "성과/실적", "전문기술/지식", "데이터 분석",
+  "전략적 사고", "성장/학습", "위기대처", "창의성/혁신",
+];
+
+const QUESTION_COUNTS = [3, 5, 7, 10];
+
 export default function HomePage() {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -38,6 +48,9 @@ export default function HomePage() {
   const [ptMode, setPtMode] = useState<"file" | "type" | "random">("type");
   const [ptFileName, setPtFileName] = useState("");
   const ptFileRef = useRef<HTMLInputElement>(null);
+  const [selectedJobRole, setSelectedJobRole] = useState<string | null>(null);
+  const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
+  const [questionCount, setQuestionCount] = useState(5);
 
   const selectInterviewer = (id: string) => {
     if (!isRandom && selectedInterviewerId === id) {
@@ -100,6 +113,9 @@ export default function HomePage() {
           callbackUrl: null,
           interviewerId: selectedInterviewerId,
           interviewType: selectedInterviewType,
+          jobRole: selectedJobRole ?? undefined,
+          focusKeywords: selectedKeywords.length > 0 ? selectedKeywords : undefined,
+          questionCount,
         }),
       });
       if (!res.ok) {
@@ -222,6 +238,66 @@ export default function HomePage() {
                 </button>
               );
             })}
+          </div>
+        </div>
+
+        {/* 직무 선택 */}
+        <div className="space-y-3 text-left">
+          <p className="text-sm font-medium text-gray-500">
+            직무 선택 <span className="text-gray-600 text-xs">(선택)</span>
+          </p>
+          <JobSelector
+            value={selectedJobRole}
+            onChange={setSelectedJobRole}
+            disabled={isLoading}
+          />
+        </div>
+
+        {/* 질문 키워드 선택 */}
+        <div className="space-y-3 text-left">
+          <p className="text-sm font-medium text-gray-500">
+            질문 키워드 <span className="text-gray-600 text-xs">(선택, 복수 선택 가능)</span>
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {FOCUS_KEYWORDS.map((kw) => (
+              <button
+                key={kw}
+                onClick={() =>
+                  setSelectedKeywords((prev) =>
+                    prev.includes(kw) ? prev.filter((k) => k !== kw) : [...prev, kw]
+                  )
+                }
+                disabled={isLoading}
+                className={`py-1.5 px-3 rounded-full border text-xs font-medium transition-all duration-200 disabled:cursor-not-allowed ${
+                  selectedKeywords.includes(kw)
+                    ? "border-blue-500 bg-blue-500/10 text-blue-300"
+                    : "border-gray-700 text-gray-400 hover:border-gray-500 hover:text-gray-200"
+                }`}
+              >
+                {kw}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* 질문 갯수 선택 */}
+        <div className="space-y-3 text-left">
+          <p className="text-sm font-medium text-gray-500">질문 갯수</p>
+          <div className="grid grid-cols-4 gap-2">
+            {QUESTION_COUNTS.map((n) => (
+              <button
+                key={n}
+                onClick={() => setQuestionCount(n)}
+                disabled={isLoading}
+                className={`py-2.5 rounded-lg border text-sm font-semibold transition-all duration-200 disabled:cursor-not-allowed ${
+                  questionCount === n
+                    ? "border-blue-500 bg-blue-500/10 text-blue-300 shadow-lg shadow-blue-500/20"
+                    : "border-gray-700 text-gray-400 hover:border-gray-500 hover:text-gray-200"
+                }`}
+              >
+                {n}개
+              </button>
+            ))}
           </div>
         </div>
 

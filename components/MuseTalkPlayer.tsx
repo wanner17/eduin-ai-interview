@@ -31,6 +31,7 @@ export default function MuseTalkPlayer({
   const callbacksRef = useRef({ onStarted, onEnded, onError });
   const [isLoading, setIsLoading] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [bodyTransform, setBodyTransform] = useState("");
 
   useEffect(() => {
     callbacksRef.current = { onStarted, onEnded, onError };
@@ -101,11 +102,15 @@ export default function MuseTalkPlayer({
         // audio.currentTime 기준으로 프레임 결정 → 드리프트 없음
         const animate = () => {
           if (cancelled) return;
+          const t = audio.currentTime;
           const frameIdx = Math.min(
-            Math.floor(audio.currentTime * fps),
+            Math.floor(t * fps),
             images.length - 1
           );
           if (images[frameIdx]) ctx.drawImage(images[frameIdx], 0, 0);
+          const sway = Math.sin(t * 1.2) * 4;
+          const bob = Math.sin(t * 2.4) * 2;
+          setBodyTransform(`translate(${sway}px, ${bob}px)`);
           animRef.current = requestAnimationFrame(animate);
         };
         animRef.current = requestAnimationFrame(animate);
@@ -142,13 +147,14 @@ export default function MuseTalkPlayer({
           src={presenterImageUrl}
           alt="면접관"
           className="w-full h-full object-contain"
+          style={{ animation: "breathing 4s ease-in-out infinite" }}
         />
       )}
 
       <canvas
         ref={canvasRef}
         className="absolute inset-0 w-full h-full object-contain"
-        style={{ display: isPlaying ? "block" : "none" }}
+        style={{ display: isPlaying ? "block" : "none", transform: bodyTransform }}
       />
       <audio ref={audioRef} />
 

@@ -25,8 +25,15 @@ interface Session {
   createdAt: Date;
 }
 
-const sessions = new Map<string, Session>();
-const qas = new Map<string, QA>();
+declare global {
+  // eslint-disable-next-line no-var
+  var __sessionStore: Map<string, Session> | undefined;
+  // eslint-disable-next-line no-var
+  var __qaStore: Map<string, QA> | undefined;
+}
+
+const sessions = (globalThis.__sessionStore ??= new Map<string, Session>());
+const qas = (globalThis.__qaStore ??= new Map<string, QA>());
 
 export const sessionStore = {
   createSession(data: {

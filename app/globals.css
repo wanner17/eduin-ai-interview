@@ -19,6 +19,11 @@
   }
 }
 
+@keyframes breathing {
+  0%, 100% { transform: scale(1) translateY(0); }
+  50% { transform: scale(1.008) translateY(-2px); }
+}
+
 body {
   background: var(--background);
   color: var(--foreground);

@@ -37,12 +37,14 @@ const DEFAULT_QUESTIONS: GeneratedQuestion[] = [
 ];
 
 export async function POST(req: NextRequest) {
-  const { resumeContent, callbackUrl, interviewerId, interviewType } = await req.json();
+  const { resumeContent, callbackUrl, interviewerId, interviewType, jobRole, focusKeywords, questionCount } = await req.json();
 
   const type = interviewType ?? "general";
-  const questions = resumeContent
-    ? await generateInterviewQuestions(resumeContent, type)
-    : DEFAULT_QUESTIONS;
+  const count: number = questionCount ?? 5;
+  const hasCustomOptions = jobRole || focusKeywords?.length;
+  const questions = (resumeContent || hasCustomOptions)
+    ? await generateInterviewQuestions(resumeContent ?? "", type, { jobRole, focusKeywords, questionCount: count })
+    : DEFAULT_QUESTIONS.slice(0, Math.min(count, DEFAULT_QUESTIONS.length));
 
   if (!questions?.length) {
     return NextResponse.json({ error: "질문 생성 실패" }, { status: 500 });
