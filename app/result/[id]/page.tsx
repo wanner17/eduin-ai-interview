@@ -243,6 +243,32 @@ export default function ResultPage({ params }: { params: Promise<{ id: string }>
           })}
         </div>
 
+        {/* Q&A Review */}
+        <motion.section
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.35 }}
+          className="bg-white border border-gray-200 rounded-2xl overflow-hidden mb-6 shadow-sm"
+        >
+          <div className="px-5 py-4 border-b border-gray-200">
+            <p className="text-sm font-bold text-gray-900">면접 기록</p>
+            <p className="text-xs text-gray-400 mt-0.5">질문과 내 답변 전체 보기</p>
+          </div>
+          <div className="divide-y divide-gray-100">
+            {session.qas.map((qa, i) => (
+              <div key={qa.id} className="px-5 py-4">
+                <p className="text-xs font-bold text-blue-500 mb-1">Q{i + 1}</p>
+                <p className="text-sm font-semibold text-gray-800 mb-2 leading-snug">{qa.question}</p>
+                {qa.answer ? (
+                  <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">{qa.answer}</p>
+                ) : (
+                  <p className="text-sm text-gray-300 italic">답변 없음</p>
+                )}
+              </div>
+            ))}
+          </div>
+        </motion.section>
+
         {/* AI Mentor */}
         <motion.section
           initial={{ opacity: 0, y: 24 }}
